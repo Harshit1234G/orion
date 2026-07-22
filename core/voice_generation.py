@@ -6,9 +6,15 @@ import sounddevice as sd
 
 
 class PiperVoiceThreadedTTS:
-    def __init__(self, voice: str, *, voices_dir: str = 'voices') -> None:
+    def __init__(
+            self, 
+            voice: str, 
+            *, 
+            voices_dir: str = 'voices', 
+            use_cuda: bool = False
+        ) -> None:
         voice_path = Path(voices_dir) / f'{voice}.onnx'
-        self.voice = PiperVoice.load(voice_path)
+        self.voice = PiperVoice.load(voice_path, use_cuda= use_cuda)
         self.queue = Queue()
 
         Thread(target= self.__tts_worker, daemon= True).start()
