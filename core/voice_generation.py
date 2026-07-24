@@ -1,6 +1,7 @@
 from queue import Queue
 from threading import Thread
 from pathlib import Path
+from dataclasses import dataclass
 from piper import PiperVoice
 import sounddevice as sd
 
@@ -11,11 +12,12 @@ class PiperVoiceThreadedTTS:
             voice: str, 
             *, 
             voices_dir: str = 'voices', 
-            use_cuda: bool = False
+            use_cuda: bool = False,
+            queue_size: int = 0
         ) -> None:
         voice_path = Path(voices_dir) / f'{voice}.onnx'
         self.voice = PiperVoice.load(voice_path, use_cuda= use_cuda)
-        self.queue = Queue()
+        self.queue = Queue(maxsize= queue_size)
 
         # daemon is for low priority thread
         self.worker = Thread(target= self.__tts_worker, daemon= True)
@@ -55,3 +57,11 @@ class PiperVoiceThreadedTTS:
     def stop(self) -> None:
         self.queue.put(self._STOP)
         self.worker.join()
+
+
+@dataclass
+class SpeechRequest:
+    text: str
+    priority: int
+    interrupt: bool = True
+        
