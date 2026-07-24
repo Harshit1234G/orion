@@ -8,21 +8,28 @@ import sounddevice as sd
 
 class PiperVoiceThreadedTTS:
     def __init__(
-            self, 
-            voice: str, 
-            *, 
-            voices_dir: str = 'voices', 
-            use_cuda: bool = False,
-            queue_size: int = 0
-        ) -> None:
+        self, 
+        voice: str, 
+        *, 
+        voices_dir: str = 'voices', 
+        use_cuda: bool = False,
+        queue_size: int = 0
+    ) -> None:
+        # Voice
         voice_path = Path(voices_dir) / f'{voice}.onnx'
         self.voice = PiperVoice.load(voice_path, use_cuda= use_cuda)
-        self.queue = Queue(maxsize= queue_size)
+
+        # queue and other attributes
+        self.request_queue = Queue(maxsize= queue_size)
+        self.audio_queue = Queue(maxsize= queue_size)
         self._STOP = object()
         self.stop_requested = False
 
-        self.worker = Thread(target= self.__tts_worker)
-        self.worker.start()
+        # threads
+        self.request_worker = Thread(target= self.__tts_worker)
+        self.audio_worker = Thread(target= self.__tts_worker)
+        self.request_worker.start()
+        self.audio_worker.start()
 
 
     def __tts_worker(self) -> None:
@@ -41,11 +48,10 @@ class PiperVoiceThreadedTTS:
         
                 if request is self._STOP:
                     break
-
-                if self.stop_requested and request.interrupt:
-                    break
         
                 for audio_chunk in self.voice.synthesize(request.text):
+                    if self.stop_requested and request.interrupt:
+                        break
                     stream.write(audio_chunk.audio_int16_array)
 
             except Exception as e:
@@ -56,17 +62,18 @@ class PiperVoiceThreadedTTS:
 
     # wrapper / helper function for simple calling of tts
     def say(
-            self, 
-            text: str, 
-            *,
-            interrupt: bool = True
-        ) -> None:
+        self, 
+        text: str, 
+        *,
+        interrupt: bool = True
+    ) -> None:
         request = SpeechRequest(text, interrupt)
-        self.queue.put(request)
+        self.request_queue.put(request)
 
     def stop(self) -> None:
-        self.queue.put(self._STOP)
-        self.worker.join()
+        self.request_queue.put(self._STOP)
+        self.audio_worker.join()
+        self.request_worker.join()
 
 
 @dataclass
