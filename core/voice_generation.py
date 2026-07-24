@@ -17,8 +17,8 @@ class PiperVoiceThreadedTTS:
         self.voice = PiperVoice.load(voice_path, use_cuda= use_cuda)
         self.queue = Queue()
 
+        # daemon is for low priority thread
         Thread(target= self.__tts_worker, daemon= True).start()
-
 
     def __tts_worker(self) -> None:
         stream = sd.OutputStream(
@@ -26,7 +26,6 @@ class PiperVoiceThreadedTTS:
             channels= 1,
             dtype= 'int16'
         )
-    
         stream.start()
     
         while True:
@@ -41,6 +40,6 @@ class PiperVoiceThreadedTTS:
         stream.stop()
         stream.close()
 
-
+    # wrapper / helper function for simple calling of tts
     def say(self, text: str) -> None:
         self.queue.put(text)
