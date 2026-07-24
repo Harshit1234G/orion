@@ -18,7 +18,11 @@ class PiperVoiceThreadedTTS:
         self.queue = Queue()
 
         # daemon is for low priority thread
-        Thread(target= self.__tts_worker, daemon= True).start()
+        self.worker = Thread(target= self.__tts_worker, daemon= True)
+        self.worker.start()
+
+        # sentinal
+        self._STOP = object()
 
     def __tts_worker(self) -> None:
         stream = sd.OutputStream(
@@ -29,13 +33,17 @@ class PiperVoiceThreadedTTS:
         stream.start()
     
         while True:
-            text = self.queue.get()
-    
-            if text is None:
-                break
-    
-            for audio_chunk in self.voice.synthesize(text):
-                stream.write(audio_chunk.audio_int16_array)
+            try:
+                text = self.queue.get()
+        
+                if text is self._STOP:
+                    break
+        
+                for audio_chunk in self.voice.synthesize(text):
+                    stream.write(audio_chunk.audio_int16_array)
+
+            except Exception as e:
+                print(e)
     
         stream.stop()
         stream.close()
@@ -43,3 +51,7 @@ class PiperVoiceThreadedTTS:
     # wrapper / helper function for simple calling of tts
     def say(self, text: str) -> None:
         self.queue.put(text)
+
+    def stop(self) -> None:
+        self.queue.put(self._STOP)
+        self.worker.join()
