@@ -2,8 +2,42 @@ from queue import Queue
 from threading import Thread
 from pathlib import Path
 from dataclasses import dataclass
+from enum import Enum
+from abc import ABC, abstractmethod
 from piper import PiperVoice
 import sounddevice as sd
+
+
+# Abstract base classes
+class BaseAudioPlayer(ABC):
+    ...
+
+
+class BaseSynthesizer(ABC):
+    ...
+
+
+# helper classes
+@dataclass
+class SpeechRequest:
+    text: str
+    priority: int
+    interrupt: bool
+
+
+class TTSState(Enum):
+    IDLE = 0
+    SYNTHESIZING = 1
+    PLAYING = 2
+    INTERRUPTED = 3
+        
+
+class SoundDevicePlayer(BaseAudioPlayer):
+    ...
+
+
+class PiperSynthesizer(BaseSynthesizer):
+    ...
 
 
 class PiperVoiceThreadedTTS:
@@ -111,10 +145,3 @@ class PiperVoiceThreadedTTS:
         self.request_queue.put(self._STOP)
         self.audio_worker.join()
         self.request_worker.join()
-
-
-@dataclass
-class SpeechRequest:
-    text: str
-    interrupt: bool
-        
