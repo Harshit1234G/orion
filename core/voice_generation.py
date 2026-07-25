@@ -23,13 +23,50 @@ class PiperVoiceThreadedTTS:
         self.request_queue = Queue(maxsize= queue_size)
         self.audio_queue = Queue(maxsize= queue_size)
         self._STOP = object()
-        self.stop_requested = False
+        self._END_OF_SENTENCE = object()
 
         # threads
-        self.request_worker = Thread(target= self.__tts_worker)
-        self.audio_worker = Thread(target= self.__tts_worker)
+        self.request_worker = Thread(target= self.__synthesize)
+        self.audio_worker = Thread(target= self.__playback)
         self.request_worker.start()
         self.audio_worker.start()
+
+    def __synthesize(self):
+        while True:
+            try:
+                request = self.request_queue.get()
+
+                if request is self._STOP:
+                    break
+
+                for audio_chunk in self.voice.synthesize(request.text):
+                    self.audio_queue.put(audio_chunk.audio_int16_array)
+
+                self.audio_queue.put(self._END_OF_SENTENCE)
+
+            except Exception as e:
+                print(e)    # TODO: Change exception handling, with logging or UI related
+
+    def __playback(self):
+        stream = sd.OutputStream(
+            samplerate= self.voice.config.sample_rate,
+            channels= 1,
+            dtype= 'int16',
+            blocksize= 0,
+            latency= 'low'
+        )
+        stream.start()
+
+        while True:
+            chunk = self.audio_queue.get()
+
+            if chunk is self._END_OF_SENTENCE:    #! Might not work as expected
+                break
+
+            stream.write(chunk)
+
+        stream.stop()
+        stream.close()
 
 
     def __tts_worker(self) -> None:
