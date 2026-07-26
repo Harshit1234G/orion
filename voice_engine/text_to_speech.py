@@ -39,9 +39,8 @@ class SpeechRequest:
 
 class TTSState(Enum):
     IDLE = 0
-    SYNTHESIZING = 1
-    PLAYING = 2
-    INTERRUPTED = 3
+    PLAYING = 1
+    INTERRUPTED = 2
         
 
 # ----------------------------
@@ -166,10 +165,7 @@ class TTSManager:
 
     @property
     def is_speaking(self):
-        return self.state in (
-            TTSState.SYNTHESIZING,
-            TTSState.PLAYING
-        )
+        return self.state == TTSState.PLAYING
 
     def __synthesis_loop(self):
         while True:
@@ -180,7 +176,6 @@ class TTSManager:
                 break
 
             self.stop_event.clear()
-            self.state = TTSState.SYNTHESIZING
 
             for chunk in self.synthesizer.synthesize(request.text):
                 if request.interrupt and self.stop_event.is_set():
