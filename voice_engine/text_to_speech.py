@@ -146,13 +146,8 @@ class TTSManager:
     def interrupt(self):
         self.stop_event.set()
         self.state = TTSState.INTERRUPTED
-
-        while True:
-            try:
-                self.audio_queue.get_nowait()
-
-            except Empty:
-                break
+        self.__clear_queue(self.audio_queue)
+        self.__clear_queue(self.request_queue)
 
     def shutdown(self):
         self.request_queue.put(self._STOP)
@@ -166,6 +161,15 @@ class TTSManager:
     @property
     def is_speaking(self):
         return self.state == TTSState.PLAYING
+
+    @staticmethod
+    def __clear_queue(queue: Queue):
+        while True:
+            try:
+                queue.get_nowait()
+
+            except Empty:
+                break
 
     def __synthesis_loop(self):
         while True:
