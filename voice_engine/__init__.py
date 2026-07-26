@@ -1,4 +1,4 @@
-from .voice_generation import (
+from .text_to_speech import (
     BaseSynthesizer,
     BaseAudioPlayer,
     SpeechRequest,
