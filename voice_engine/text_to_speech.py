@@ -111,7 +111,7 @@ class TTSManager:
         audio_player: BaseAudioPlayer,
         *,
         request_buffer_size: int = 5,
-        audio_buffer_size: int = 50
+        audio_buffer_size: int = 25
     ) -> None:
         self.synthesizer = synthesizer
         self.audio_player = audio_player
@@ -126,7 +126,6 @@ class TTSManager:
         self.request_worker = Thread(
             target= self.__synthesis_loop
         )
-
         self.audio_worker = Thread(
             target= self.__playback_loop
         )
@@ -179,7 +178,6 @@ class TTSManager:
     def __synthesis_loop(self):
         while True:
             request = self.request_queue.get()
-
             if request is self._STOP:
                 self.audio_queue.put(self._STOP)
                 break
@@ -192,25 +190,24 @@ class TTSManager:
                     break
 
                 self.audio_queue.put(chunk)
-
             self.audio_queue.put(self._END_OF_REQUEST)
 
     def __playback_loop(self):
         while True:
             chunk = self.audio_queue.get()
-
             if chunk is self._STOP:
                 break
 
             if chunk is self._END_OF_REQUEST:
-                if self.state != TTSState.INTERRUPTED:
-                    self.state = TTSState.IDLE
-
+                self.state = (
+                    TTSState.IDLE 
+                    if self.state != TTSState.INTERRUPTED else 
+                    TTSState.INTERRUPTED
+                )
                 continue
-
-            self.state = TTSState.PLAYING
 
             if self.stop_event.is_set():
                 continue
 
+            self.state = TTSState.PLAYING
             self.audio_player.play(chunk)
