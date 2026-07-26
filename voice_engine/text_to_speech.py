@@ -111,7 +111,7 @@ class TTSManager:
         audio_player: BaseAudioPlayer,
         *,
         request_buffer_size: int = 5,
-        audio_buffer_size: int = 20
+        audio_buffer_size: int = 50
     ) -> None:
         self.synthesizer = synthesizer
         self.audio_player = audio_player
@@ -120,6 +120,7 @@ class TTSManager:
         self.audio_queue = Queue(maxsize= audio_buffer_size)
 
         self.state = TTSState.IDLE
+        self.interruptable_current_request = True
         self.stop_event = Event()
 
         self.request_worker = Thread(
@@ -147,10 +148,11 @@ class TTSManager:
         )
 
     def interrupt(self):
-        self.stop_event.set()
-        self.state = TTSState.INTERRUPTED
-        self.__clear_queue(self.audio_queue)
-        self.__clear_queue(self.request_queue)
+        if self.interruptable_current_request:
+            self.stop_event.set()
+            self.state = TTSState.INTERRUPTED
+            self.__clear_queue(self.audio_queue)
+            self.__clear_queue(self.request_queue)
 
     def shutdown(self):
         self.request_queue.put(self._STOP)
@@ -162,7 +164,7 @@ class TTSManager:
         self.audio_player.stop()
 
     @property
-    def is_speaking(self):
+    def is_speaking(self) -> bool:
         return self.state == TTSState.PLAYING
 
     @staticmethod
@@ -183,6 +185,7 @@ class TTSManager:
                 break
 
             self.stop_event.clear()
+            self.interruptable_current_request = request.interrupt
 
             for chunk in self.synthesizer.synthesize(request.text):
                 if request.interrupt and self.stop_event.is_set():
