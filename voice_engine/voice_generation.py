@@ -126,6 +126,39 @@ class TTSManager:
         self.request_worker.start()
         self.audio_worker.start()
 
+    def say(
+        self,
+        text: str,
+        *,
+        interrupt: bool = False
+    ):
+        self.request_queue.put(
+            SpeechRequest(
+                text, 
+                interrupt
+            )
+        )
+
+    def interrupt(self):
+        self.stop_event.set()
+        self.state = TTSState.INTERRUPTED
+
+        while True:
+            try:
+                self.audio_queue.get_nowait()
+
+            except Empty:
+                break
+
+    def shutdown(self):
+        self.request_queue.put(self._STOP)
+        self.audio_queue.put(self._STOP)
+
+        self.request_worker.join()
+        self.audio_worker.join()
+
+        self.audio_player.close()
+
     def __synthesis_loop(self):
         while True:
             request = self.request_queue.get()
