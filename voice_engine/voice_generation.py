@@ -32,11 +32,25 @@ class TTSState(Enum):
     INTERRUPTED = 3
         
 
+# main classes
 class SoundDevicePlayer(BaseAudioPlayer):
     ...
 
 
 class PiperSynthesizer(BaseSynthesizer):
+    def __init__(
+        self, 
+        voice: str, 
+        *, 
+        voices_dir: str = 'voices',
+        use_cuda: bool = False
+    ) -> None:
+        super().__init__()
+        voice_path = Path(voices_dir) / f'{voice}.onnx'
+        self.voice = PiperVoice.load(voice_path, use_cuda= use_cuda)
+
+
+class TTSManager:
     ...
 
 
