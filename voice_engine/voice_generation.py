@@ -21,10 +21,6 @@ class BaseAudioPlayer(ABC):
     def stop(self) -> None:
         ...
 
-    @abstractmethod
-    def abort(self) -> None:
-        ...
-
 
 class BaseSynthesizer(ABC):
     @abstractmethod
@@ -70,9 +66,6 @@ class SoundDevicePlayer(BaseAudioPlayer):
         self.stream.stop()
         self.stream.close()
 
-    def abort(self) -> None:
-        self.stream.abort()
-
 
 # ----------------------------
 # Audio Synthesizers
@@ -83,7 +76,8 @@ class PiperSynthesizer(BaseSynthesizer):
         voice: str, 
         *, 
         voices_dir: str = 'voice_engine/voices',
-        use_cuda: bool = False
+        use_cuda: bool = False,
+        frame_size: int = 2048
     ) -> None:
         super().__init__()
         voice_path = Path(voices_dir) / f'{voice}.onnx'
@@ -91,6 +85,7 @@ class PiperSynthesizer(BaseSynthesizer):
             voice_path, 
             use_cuda= use_cuda
         )
+        self.frame_size = frame_size
 
     @property
     def sample_rate(self) -> int:
@@ -98,7 +93,10 @@ class PiperSynthesizer(BaseSynthesizer):
 
     def synthesize(self, text: str) -> Iterator:
         for chunk in self.voice.synthesize(text):
-            yield chunk.audio_int16_array
+            chunk_arr = chunk.audio_int16_array
+
+            for i in range(0, len(chunk_arr), self.frame_size):
+                yield chunk_arr[i:i+self.frame_size]
 
 
 # ----------------------------
@@ -156,8 +154,6 @@ class TTSManager:
 
             except Empty:
                 break
-
-        self.audio_player.abort()
 
     def shutdown(self):
         self.request_queue.put(self._STOP)
