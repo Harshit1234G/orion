@@ -110,13 +110,14 @@ class TTSManager:
         synthesizer: BaseSynthesizer,
         audio_player: BaseAudioPlayer,
         *,
-        request_limit: int = 5
+        request_buffer_size: int = 5,
+        audio_buffer_size: int = 20
     ) -> None:
         self.synthesizer = synthesizer
         self.audio_player = audio_player
 
-        self.request_queue = Queue(maxsize= request_limit)
-        self.audio_queue = Queue()
+        self.request_queue = Queue(maxsize= request_buffer_size)
+        self.audio_queue = Queue(maxsize= audio_buffer_size)
 
         self.state = TTSState.IDLE
         self.stop_event = Event()
