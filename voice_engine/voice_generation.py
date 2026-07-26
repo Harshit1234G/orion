@@ -21,6 +21,10 @@ class BaseAudioPlayer(ABC):
     def stop(self) -> None:
         ...
 
+    @abstractmethod
+    def abort(self) -> None:
+        ...
+
 
 class BaseSynthesizer(ABC):
     @abstractmethod
@@ -65,6 +69,9 @@ class SoundDevicePlayer(BaseAudioPlayer):
     def stop(self) -> None:
         self.stream.stop()
         self.stream.close()
+
+    def abort(self) -> None:
+        self.stream.abort()
 
 
 # ----------------------------
@@ -130,7 +137,7 @@ class TTSManager:
         self,
         text: str,
         *,
-        interrupt: bool = False
+        interrupt: bool = True
     ):
         self.request_queue.put(
             SpeechRequest(
@@ -149,6 +156,8 @@ class TTSManager:
 
             except Empty:
                 break
+
+        self.audio_player.abort()
 
     def shutdown(self):
         self.request_queue.put(self._STOP)
