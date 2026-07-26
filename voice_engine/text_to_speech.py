@@ -108,12 +108,14 @@ class TTSManager:
     def __init__(
         self,
         synthesizer: BaseSynthesizer,
-        audio_player: BaseAudioPlayer
+        audio_player: BaseAudioPlayer,
+        *,
+        request_limit: int = 5
     ) -> None:
         self.synthesizer = synthesizer
         self.audio_player = audio_player
 
-        self.request_queue = Queue()
+        self.request_queue = Queue(maxsize= request_limit)
         self.audio_queue = Queue()
 
         self.state = TTSState.IDLE
