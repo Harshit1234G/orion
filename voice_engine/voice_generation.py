@@ -18,7 +18,7 @@ class BaseAudioPlayer(ABC):
         ...
 
     @abstractmethod
-    def close(self) -> None:
+    def stop(self) -> None:
         ...
 
 
@@ -75,7 +75,7 @@ class PiperSynthesizer(BaseSynthesizer):
         self, 
         voice: str, 
         *, 
-        voices_dir: str = 'voices',
+        voices_dir: str = 'voice_engine/voices',
         use_cuda: bool = False
     ) -> None:
         super().__init__()
@@ -157,7 +157,14 @@ class TTSManager:
         self.request_worker.join()
         self.audio_worker.join()
 
-        self.audio_player.close()
+        self.audio_player.stop()
+
+    @property
+    def is_speaking(self):
+        return self.state in (
+            TTSState.SYNTHESIZING,
+            TTSState.PLAYING
+        )
 
     def __synthesis_loop(self):
         while True:
