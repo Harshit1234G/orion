@@ -1,4 +1,4 @@
-from queue import PriorityQueue, Empty
+from queue import Queue, Empty
 from threading import Thread, Event
 from pathlib import Path
 from dataclasses import dataclass
@@ -34,7 +34,6 @@ class BaseSynthesizer(ABC):
 @dataclass
 class SpeechRequest:
     text: str
-    priority: int
     interrupt: bool
 
 
@@ -110,8 +109,8 @@ class TTSManager:
         self.synthesizer = synthesizer
         self.audio_player = audio_player
 
-        self.request_queue = PriorityQueue()
-        self.audio_queue = PriorityQueue()
+        self.request_queue = Queue()
+        self.audio_queue = Queue()
 
         self.state = TTSState.IDLE
         self.stop_event = Event()
@@ -128,7 +127,23 @@ class TTSManager:
         self.audio_worker.start()
 
     def __synthesis_loop(self):
-        ...
+        while True:
+            request = self.request_queue.get()
+
+            if request is self._STOP:
+                self.audio_queue.put(self._STOP)
+                break
+
+            self.stop_event.clear()
+            self.state = TTSState.SYNTHESIZING
+
+            for chunk in self.synthesizer.synthesize(request.text):
+                if request.interrupt and self.stop_event.is_set():
+                    break
+
+                self.audio_queue.put(chunk)
+
+            self.audio_queue.put(self._END_OF_REQUEST)
 
     def __playback_loop(self):
         ...
