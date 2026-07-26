@@ -146,4 +146,21 @@ class TTSManager:
             self.audio_queue.put(self._END_OF_REQUEST)
 
     def __playback_loop(self):
-        ...
+        while True:
+            chunk = self.audio_queue.get()
+
+            if chunk is self._STOP:
+                break
+
+            if chunk is self._END_OF_REQUEST:
+                if self.state != TTSState.INTERRUPTED:
+                    self.state = TTSState.IDLE
+
+                continue
+
+            self.state = TTSState.PLAYING
+
+            if self.stop_event.is_set():
+                continue
+
+            self.audio_player.play(chunk)
