@@ -1,5 +1,5 @@
-from queue import Queue
-from threading import Thread
+from queue import PriorityQueue, Empty
+from threading import Thread, Event
 from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Iterator
 from piper import PiperVoice
 import sounddevice as sd
+
 
 # ----------------------------
 # Abstract base classes
@@ -45,7 +46,7 @@ class TTSState(Enum):
         
 
 # ----------------------------
-# Audio Players
+# Audio Player
 # ----------------------------
 class SoundDevicePlayer(BaseAudioPlayer):
     def __init__(self, sample_rate: int):
@@ -67,6 +68,9 @@ class SoundDevicePlayer(BaseAudioPlayer):
         self.stream.close()
 
 
+# ----------------------------
+# Audio Synthesizers
+# ----------------------------
 class PiperSynthesizer(BaseSynthesizer):
     def __init__(
         self, 
@@ -91,7 +95,40 @@ class PiperSynthesizer(BaseSynthesizer):
             yield chunk.audio_int16_array
 
 
+# ----------------------------
+# Manager
+# ----------------------------
 class TTSManager:
-    def __init__(self):
+    _STOP = object()
+    _END_OF_REQUEST = object()
+
+    def __init__(
+        self,
+        synthesizer: BaseSynthesizer,
+        audio_player: BaseAudioPlayer
+    ) -> None:
+        self.synthesizer = synthesizer
+        self.audio_player = audio_player
+
+        self.request_queue = PriorityQueue()
+        self.audio_queue = PriorityQueue()
+
+        self.state = TTSState.IDLE
+        self.stop_event = Event()
+
+        self.request_worker = Thread(
+            target= self.__synthesis_loop
+        )
+
+        self.audio_worker = Thread(
+            target= self.__playback_loop
+        )
+
+        self.request_worker.start()
+        self.audio_worker.start()
+
+    def __synthesis_loop(self):
         ...
 
+    def __playback_loop(self):
+        ...
