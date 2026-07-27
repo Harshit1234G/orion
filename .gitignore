@@ -13,3 +13,4 @@ wheels/
 test.ipynb
 .env
 voices
+logs

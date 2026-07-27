@@ -5,8 +5,11 @@ from dataclasses import dataclass
 from enum import Enum
 from abc import ABC, abstractmethod
 from typing import Iterator
+
 from piper import PiperVoice
 import sounddevice as sd
+
+from utils import logger
 
 
 # ----------------------------
@@ -133,12 +136,15 @@ class TTSManager:
         self.request_worker.start()
         self.audio_worker.start()
 
+        logger.info(f'TTSManager has been initialized. Synthesizer = {self.synthesizer.__class__.__name__}, Audio Player = {self.audio_player.__class__.__name__}')
+
     def say(
         self,
         text: str,
         *,
         interrupt: bool = True
     ):
+        logger.debug(f'TTS request recieved, {text=}, {interrupt=}')
         self.request_queue.put(
             SpeechRequest(
                 text, 
