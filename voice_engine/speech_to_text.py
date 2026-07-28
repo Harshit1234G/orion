@@ -1,32 +1,47 @@
-import speech_recognition as sr
+from abc import ABC, abstractmethod
+import sounddevice as sd
+from pysilero_vad import SileroVoiceActivityDetector
+import faster_whisper as fw
 
 
-class FasterWhisperSpeechRecognizer:
-    def __init__(
-            self, 
-            *, 
-            model: str = 'base',
-            language: str = 'en',
-            ambient_noice_adjustment: bool = True
-        ) -> None:
-        self.model_type = model
-        self.language = language
-        self.ambient_noice_adjustment = ambient_noice_adjustment
+# ----------------------------
+# Abstract base classes
+# ----------------------------
+class BaseRecorder(ABC):
+    ...
 
-    def transcribe(self) -> str:
-        self.recognizer = sr.Recognizer()
-        self.mic = sr.Microphone()
 
-        with self.mic as source:
-            if self.ambient_noice_adjustment:
-                self.recognizer.adjust_for_ambient_noise(source)
+class BaseVAD(ABC):
+    ...
 
-            audio_data = self.recognizer.listen(source)
-            transcription = self.recognizer.recognize_faster_whisper(
-                audio_data,
-                model= self.model_type,
-                language= 'en',
-                vad_filter= True
-            )
 
-        return transcription
+class BaseRecognizer(ABC):
+    ...
+
+
+# ----------------------------
+# Recorder
+# ----------------------------
+class MicrophoneRecorder(BaseRecorder):
+    ...
+
+
+# ----------------------------
+# Voice Activity Detector
+# ----------------------------
+class SileroVAD(BaseVAD):
+    ...
+
+
+# ----------------------------
+# Recognizer
+# ----------------------------
+class FasterWhisperRecognizer(BaseRecognizer):
+    ...
+
+
+# ----------------------------
+# Manager
+# ----------------------------
+class STTManager:
+    ...

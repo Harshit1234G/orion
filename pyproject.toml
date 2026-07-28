@@ -8,6 +8,6 @@ dependencies = [
     "faster-whisper>=1.2.1",
     "openai>=2.46.0",
     "piper-tts>=1.5.0",
+    "pysilero-vad>=3.4.0",
     "sounddevice>=0.5.5",
-    "speechrecognition[faster-whisper]>=3.17.0",
 ]
