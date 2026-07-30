@@ -7,6 +7,15 @@ from .text_to_speech import (
     PiperSynthesizer,
     TTSManager
 )
+from .speech_to_text import (
+    BaseRecognizer,
+    BaseRecorder,
+    BaseVAD,
+    SoundDeviceRecorder,
+    FasterWhisperRecognizer,
+    SileroVAD,
+    STTManager
+)
 
 __all__ = [
     BaseSynthesizer,
@@ -15,5 +24,12 @@ __all__ = [
     TTSState,
     SoundDevicePlayer,
     PiperSynthesizer,
-    TTSManager
+    TTSManager,
+    BaseRecognizer,
+    BaseRecorder,
+    BaseVAD,
+    SoundDeviceRecorder,
+    FasterWhisperRecognizer,
+    SileroVAD,
+    STTManager
 ]

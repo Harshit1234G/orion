@@ -1,7 +1,13 @@
+from queue import Queue, Empty
+from threading import Thread, Event
 from abc import ABC, abstractmethod
+from typing import Iterator, Literal
+
 import sounddevice as sd
 from pysilero_vad import SileroVoiceActivityDetector
-import faster_whisper as fw
+from faster_whisper import WhisperModel
+
+from utils import logger
 
 
 # ----------------------------
@@ -9,7 +15,7 @@ import faster_whisper as fw
 # ----------------------------
 class BaseRecorder(ABC):
     @abstractmethod
-    def record(self) -> None:
+    def record(self, chunk) -> None:
         ...
 
     @abstractmethod
@@ -22,14 +28,17 @@ class BaseVAD(ABC):
 
 
 class BaseRecognizer(ABC):
-    ...
+    @abstractmethod
+    def recognize(self, audio) -> Iterator:
+        ...
 
 
 # ----------------------------
 # Recorder
 # ----------------------------
 class SoundDeviceRecorder(BaseRecorder):
-    def __init__(self, samplerate: int) -> None:
+    def __init__(self, *, samplerate: int = 16_000) -> None:
+        super().__init__()
         self.stream = sd.InputStream(
             samplerate= samplerate,
             blocksize= 0,
@@ -58,7 +67,25 @@ class SileroVAD(BaseVAD):
 # Recognizer
 # ----------------------------
 class FasterWhisperRecognizer(BaseRecognizer):
-    ...
+    def __init__(
+        self,
+        *, 
+        model: Literal['tiny.en', 'base.en', 'small.en'] = 'base.en',
+        language: str = 'en',
+        compute_type: str = 'int8'   # quantization for cpu
+    ) -> None:
+        self.language = language
+        self.model = WhisperModel(
+            model_size_or_path= model,
+            compute_type= compute_type
+        )
+
+    def recognize(self, audio) -> Iterator:
+        segments, _ = self.model.transcribe(
+            audio,
+            language= self.language
+        )
+        return segments
 
 
 # ----------------------------
