@@ -15,7 +15,7 @@ from utils import logger
 # ----------------------------
 class BaseRecorder(ABC):
     @abstractmethod
-    def record(self, chunk) -> None:
+    def record(self, frames: int):
         ...
 
     @abstractmethod
@@ -24,7 +24,9 @@ class BaseRecorder(ABC):
 
 
 class BaseVAD(ABC):
-    ...
+    @abstractmethod
+    def detect(self, audio) -> None:
+        ...
 
 
 class BaseRecognizer(ABC):
@@ -48,8 +50,9 @@ class SoundDeviceRecorder(BaseRecorder):
         )
         self.stream.start()
 
-    def record(self, chunk) -> None:
-        self.stream.read(chunk)
+    def record(self, frames: int):
+        audio, _ = self.stream.read(frames)
+        return audio
 
     def stop(self) -> None:
         self.stream.stop()
