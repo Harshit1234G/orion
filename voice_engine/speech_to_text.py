@@ -2,6 +2,8 @@ from queue import Queue, Empty
 from threading import Thread, Event
 from abc import ABC, abstractmethod
 from typing import Iterator, Literal
+from enum import Enum
+from dataclasses import dataclass
 
 import sounddevice as sd
 import silero_vad as silero
@@ -39,6 +41,21 @@ class BaseRecognizer(ABC):
     @abstractmethod
     def recognize(self, audio) -> Iterator:
         ...
+
+
+# ----------------------------
+# Helper Classes
+# ----------------------------
+@dataclass
+class TextRequest:
+    audio: np.ndarray
+    interrupt: bool
+
+
+class STTState(Enum):
+    IDLE = 0
+    PLAYING = 1
+    INTERRUPTED = 2
 
 
 # ----------------------------
@@ -120,4 +137,55 @@ class FasterWhisperRecognizer(BaseRecognizer):
 # Manager
 # ----------------------------
 class STTManager:
-    ...
+    _STOP = object()
+    _END_OF_REQUEST = object()
+
+    def __init__(
+        self, 
+        recorder: BaseRecorder,
+        vad: BaseVAD,
+        recognizer: BaseRecognizer,
+        *,
+        request_buffer_size: int = 5,
+        vad_buffer_size: int = 25, 
+        recognizer_buffer_size: int = 25
+    ) -> None:
+        self.recorder = recorder
+        self.vad = vad
+        self.recognizer = recognizer
+
+        self.request_queue = Queue(maxsize= request_buffer_size)
+        self.vad_queue = Queue(maxsize= vad_buffer_size)
+        self.recognizer_queue = Queue(maxsize= recognizer_buffer_size)
+
+        self.state = STTState.IDLE
+        self.interruptable_current_request = True
+        self.stop_event = Event()
+
+        self.request_worker = Thread(target= self.__recorder_loop)
+        self.vad_worker = Thread(target= self.__vad_loop)
+        self.recognize_worker = Thread(target= self.__recognize_loop)
+
+        self.request_worker.start()
+        self.vad_worker.start()
+        self.recognize_worker.start()
+
+        logger.info(f'STTManager has been initialized. Recorder = {self.recorder.__class__.__name__}, vad = {self.vad.__class__.__name__}, recognizer = {self.recognizer.__class__.__name__}')
+
+    @staticmethod
+    def __clear_queue(queue: Queue):
+        while True:
+            try:
+                queue.get_nowait()
+
+            except Empty:
+                break
+
+    def __recorder_loop(self) -> None:
+        ...
+
+    def __vad_loop(self) -> None:
+        ...
+
+    def __recognize_loop(self) -> None:
+        ...
