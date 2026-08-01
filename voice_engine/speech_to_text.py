@@ -4,8 +4,10 @@ from abc import ABC, abstractmethod
 from typing import Iterator, Literal
 
 import sounddevice as sd
-from pysilero_vad import SileroVoiceActivityDetector
+import silero_vad as silero
 from faster_whisper import WhisperModel
+import numpy as np
+import torch
 
 from utils import logger
 
@@ -25,7 +27,11 @@ class BaseRecorder(ABC):
 
 class BaseVAD(ABC):
     @abstractmethod
-    def detect(self, audio) -> None:
+    def detect(self, chunk) -> dict[str, int | float] | None:
+        ...
+
+    @abstractmethod
+    def reset(self) -> None:
         ...
 
 
@@ -50,7 +56,7 @@ class SoundDeviceRecorder(BaseRecorder):
         )
         self.stream.start()
 
-    def record(self, frames: int):
+    def record(self, *, frames: int = 512):
         audio, _ = self.stream.read(frames)
         return audio
 
@@ -63,7 +69,25 @@ class SoundDeviceRecorder(BaseRecorder):
 # Voice Activity Detector
 # ----------------------------
 class SileroVAD(BaseVAD):
-    ...
+    def __init__(self, **vad_kwargs):
+        super().__init__()
+        self.model = silero.load_silero_vad()
+        self.iterator = silero.VADIterator(
+            model= self.model,
+            **vad_kwargs
+        )
+
+    def detect(self, chunk: np.ndarray):
+        # preprocessing
+        chunk = chunk.squeeze()     # (C, 1) -> (C,)
+        norm_factor = -np.iinfo(np.int16).min
+        chunk = chunk.astype(np.float32) / norm_factor
+        chunk = torch.from_numpy(chunk)
+
+        return self.iterator(chunk)
+
+    def reset(self):
+        self.iterator.reset_states()
 
 
 # ----------------------------
@@ -77,6 +101,7 @@ class FasterWhisperRecognizer(BaseRecognizer):
         language: str = 'en',
         compute_type: str = 'int8'   # quantization for cpu
     ) -> None:
+        super().__init__()
         self.language = language
         self.model = WhisperModel(
             model_size_or_path= model,
