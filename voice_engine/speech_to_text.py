@@ -172,6 +172,42 @@ class STTManager:
 
         logger.info(f'STTManager has been initialized. Recorder = {self.recorder.__class__.__name__}, vad = {self.vad.__class__.__name__}, recognizer = {self.recognizer.__class__.__name__}')
 
+    def listen(
+        self, 
+        audio,
+        *,
+        interrupt: bool = True
+    ):
+        logger.info('STT request recieved')
+        self.request_queue.put(
+            TextRequest(
+                audio= audio,
+                interrupt= interrupt
+            )
+        )
+
+    def interrupt(self):
+        if self.interruptable_current_request:
+            logger.info('STT Interrupted')
+            self.stop_event.set()
+            self.state = STTState.INTERRUPTED
+            self.vad.reset()
+            self.__clear_queue(self.request_queue)
+            self.__clear_queue(self.vad_queue)
+            self.__clear_queue(self.recognizer_queue)
+
+    def shutdown(self):
+        logger.info('Shutting down STT')
+        self.request_queue.put(self._STOP)
+        self.vad_queue.put(self._STOP)
+        self.recognizer_queue.put(self._STOP)
+
+        self.request_worker.join()
+        self.vad_worker.join()
+        self.recognize_worker.join()
+
+        self.recorder.stop()
+
     @staticmethod
     def __clear_queue(queue: Queue):
         while True:
