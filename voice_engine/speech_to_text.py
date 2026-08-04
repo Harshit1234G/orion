@@ -33,7 +33,7 @@ class BaseVAD(ABC):
         ...
 
     @abstractmethod
-    def reset(self) -> None:
+    def reset(self) -> None:   # mainly required when creating a new session, or switching audio source
         ...
 
 
@@ -54,8 +54,8 @@ class TextRequest:
 
 class STTState(Enum):
     IDLE = 0
-    PLAYING = 1
-    INTERRUPTED = 2
+    RECORDING = 1
+    PROCESSING = 2
 
 
 # ----------------------------
@@ -191,7 +191,6 @@ class STTManager:
             logger.info('STT Interrupted')
             self.stop_event.set()
             self.state = STTState.INTERRUPTED
-            self.vad.reset()
             self.__clear_queue(self.request_queue)
             self.__clear_queue(self.vad_queue)
             self.__clear_queue(self.recognizer_queue)
@@ -207,6 +206,7 @@ class STTManager:
         self.recognize_worker.join()
 
         self.recorder.stop()
+        self.vad.reset()
 
     @staticmethod
     def __clear_queue(queue: Queue):
