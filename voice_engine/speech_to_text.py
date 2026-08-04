@@ -131,7 +131,6 @@ class FasterWhisperRecognizer(BaseRecognizer):
 # ----------------------------
 class STTManager:
     _STOP = object()
-    _END_OF_REQUEST = object()
 
     def __init__(
         self, 
@@ -176,6 +175,13 @@ class STTManager:
 
         self.recorder.stop()
         self.vad.reset()
+
+    @property
+    def is_listening(self):
+        return self.state in (
+            STTState.RECORDING,
+            STTState.PROCESSING
+        )
 
     def __recorder_loop(self) -> None:
         ...
