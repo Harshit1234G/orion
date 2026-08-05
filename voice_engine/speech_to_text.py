@@ -18,7 +18,7 @@ from utils import logger
 # ----------------------------
 class BaseRecorder(ABC):
     @abstractmethod
-    def record(self, frames: int):
+    def record(self) -> np.ndarray:
         ...
 
     @abstractmethod
@@ -48,15 +48,20 @@ class BaseRecognizer(ABC):
 class STTState(Enum):
     IDLE = 0
     RECORDING = 1
-    PROCESSING = 2
 
 
 # ----------------------------
 # Recorder
 # ----------------------------
 class SoundDeviceRecorder(BaseRecorder):
-    def __init__(self, *, samplerate: int = 16_000) -> None:
+    def __init__(
+        self, 
+        *, 
+        samplerate: int = 16_000, 
+        frames: int = 512
+    ) -> None:
         super().__init__()
+        self.frames = frames
         self.stream = sd.InputStream(
             samplerate= samplerate,
             blocksize= 0,
@@ -66,8 +71,8 @@ class SoundDeviceRecorder(BaseRecorder):
         )
         self.stream.start()
 
-    def record(self, *, frames: int = 512):
-        audio, _ = self.stream.read(frames)
+    def record(self) -> np.ndarray:
+        audio, _ = self.stream.read(self.frames)
         return audio
 
     def stop(self) -> None:
@@ -130,15 +135,13 @@ class FasterWhisperRecognizer(BaseRecognizer):
 # Manager
 # ----------------------------
 class STTManager:
-    _STOP = object()
-
     def __init__(
         self, 
         recorder: BaseRecorder,
         vad: BaseVAD,
         recognizer: BaseRecognizer,
         *,
-        recorder_buffer_size: int = 5,
+        recorder_buffer_size: int = 25,
         vad_buffer_size: int = 25, 
         transcript_buffer_size: int = 25
     ) -> None:
@@ -163,11 +166,19 @@ class STTManager:
 
         logger.info(f'STTManager has been initialized. Recorder = {self.recorder.__class__.__name__}, vad = {self.vad.__class__.__name__}, recognizer = {self.recognizer.__class__.__name__}')
 
+    def start_listening(self):
+        self.state = STTState.RECORDING
+
+    def stop_listening(self):
+        self.state = STTState.IDLE
+
+    @property
+    def is_listening(self):
+        return self.state == STTState.RECORDING
+
     def shutdown(self):
         logger.info('Shutting down STT')
-        self.recorder_queue.put(self._STOP)
-        self.vad_queue.put(self._STOP)
-        self.transcript_queue.put(self._STOP)
+        self.stop_event.set()
 
         self.record_worker.join()
         self.vad_worker.join()
@@ -176,15 +187,19 @@ class STTManager:
         self.recorder.stop()
         self.vad.reset()
 
-    @property
-    def is_listening(self):
-        return self.state in (
-            STTState.RECORDING,
-            STTState.PROCESSING
-        )
-
     def __recorder_loop(self) -> None:
-        ...
+        while True:
+            try:
+                if self.stop_event.is_set():
+                    break
+
+                if self.is_listening:
+                    audio_chunk = self.recorder.record()
+                    self.recorder_queue.put(audio_chunk)
+
+            except Exception as e:
+                logger.error(f'Recorder worker crashed: {e}')
+                raise
 
     def __vad_loop(self) -> None:
         ...
