@@ -2,7 +2,6 @@ from queue import Queue
 from threading import Thread, Event
 from abc import ABC, abstractmethod
 from typing import Iterator, Literal
-from enum import Enum
 
 import sounddevice as sd
 import silero_vad as silero
@@ -28,7 +27,7 @@ class BaseRecorder(ABC):
 
 class BaseVAD(ABC):
     @abstractmethod
-    def detect(self, chunk) -> dict[str, int | float] | None:
+    def detect(self, chunk: np.ndarray) -> dict[str, int | float] | None:
         ...
 
     @abstractmethod
@@ -40,14 +39,6 @@ class BaseRecognizer(ABC):
     @abstractmethod
     def recognize(self, audio) -> Iterator:
         ...
-
-
-# ----------------------------
-# Helper Classes
-# ----------------------------
-class STTState(Enum):
-    IDLE = 0
-    RECORDING = 1
 
 
 # ----------------------------
@@ -92,7 +83,7 @@ class SileroVAD(BaseVAD):
             **vad_kwargs
         )
 
-    def detect(self, chunk: np.ndarray):
+    def detect(self, chunk: np.ndarray) -> dict[str, int | float] | None:
         # preprocessing
         chunk = chunk.squeeze()     # (C, 1) -> (C,)
         norm_factor = -np.iinfo(np.int16).min
@@ -141,19 +132,18 @@ class STTManager:
         vad: BaseVAD,
         recognizer: BaseRecognizer,
         *,
-        recorder_buffer_size: int = 25,
-        vad_buffer_size: int = 25, 
+        audio_buffer_size: int = 25,
+        utterance_buffer_size: int = 25, 
         transcript_buffer_size: int = 25
     ) -> None:
         self.recorder = recorder
         self.vad = vad
         self.recognizer = recognizer
 
-        self.recorder_queue = Queue(maxsize= recorder_buffer_size)
-        self.vad_queue = Queue(maxsize= vad_buffer_size)
+        self.audio_queue = Queue(maxsize= audio_buffer_size)
+        self.utterance_queue = Queue(maxsize= utterance_buffer_size)
         self.transcript_queue = Queue(maxsize= transcript_buffer_size)
 
-        self.state = STTState.IDLE
         self.stop_event = Event()
         self.listening_event = Event()
 
@@ -168,16 +158,14 @@ class STTManager:
         logger.info(f'STTManager has been initialized. Recorder = {self.recorder.__class__.__name__}, vad = {self.vad.__class__.__name__}, recognizer = {self.recognizer.__class__.__name__}')
 
     def start_listening(self):
-        self.state = STTState.RECORDING
         self.listening_event.set()
 
     def stop_listening(self):
-        self.state = STTState.IDLE
         self.listening_event.clear()
 
     @property
     def is_listening(self):
-        return self.state == STTState.RECORDING
+        return self.listening_event.is_set()
 
     def shutdown(self):
         logger.info('Shutting down STT')
@@ -196,7 +184,7 @@ class STTManager:
                 self.listening_event.wait()
 
                 audio_chunk = self.recorder.record()
-                self.recorder_queue.put(audio_chunk)
+                self.audio_queue.put(audio_chunk)
 
             except Exception as e:
                 logger.error(f'Recorder worker crashed: {e}')
