@@ -155,6 +155,7 @@ class STTManager:
 
         self.state = STTState.IDLE
         self.stop_event = Event()
+        self.listening_event = Event()
 
         self.record_worker = Thread(target= self.__recorder_loop)
         self.vad_worker = Thread(target= self.__vad_loop)
@@ -168,9 +169,11 @@ class STTManager:
 
     def start_listening(self):
         self.state = STTState.RECORDING
+        self.listening_event.set()
 
     def stop_listening(self):
         self.state = STTState.IDLE
+        self.listening_event.clear()
 
     @property
     def is_listening(self):
@@ -188,14 +191,12 @@ class STTManager:
         self.vad.reset()
 
     def __recorder_loop(self) -> None:
-        while True:
+        while not self.stop_event.is_set():
             try:
-                if self.stop_event.is_set():
-                    break
+                self.listening_event.wait()
 
-                if self.is_listening:
-                    audio_chunk = self.recorder.record()
-                    self.recorder_queue.put(audio_chunk)
+                audio_chunk = self.recorder.record()
+                self.recorder_queue.put(audio_chunk)
 
             except Exception as e:
                 logger.error(f'Recorder worker crashed: {e}')
