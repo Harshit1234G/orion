@@ -138,26 +138,26 @@ class STTManager:
         vad: BaseVAD,
         recognizer: BaseRecognizer,
         *,
-        request_buffer_size: int = 5,
+        recorder_buffer_size: int = 5,
         vad_buffer_size: int = 25, 
-        recognizer_buffer_size: int = 25
+        transcript_buffer_size: int = 25
     ) -> None:
         self.recorder = recorder
         self.vad = vad
         self.recognizer = recognizer
 
-        self.request_queue = Queue(maxsize= request_buffer_size)
+        self.recorder_queue = Queue(maxsize= recorder_buffer_size)
         self.vad_queue = Queue(maxsize= vad_buffer_size)
-        self.recognizer_queue = Queue(maxsize= recognizer_buffer_size)
+        self.transcript_queue = Queue(maxsize= transcript_buffer_size)
 
         self.state = STTState.IDLE
         self.stop_event = Event()
 
-        self.request_worker = Thread(target= self.__recorder_loop)
+        self.record_worker = Thread(target= self.__recorder_loop)
         self.vad_worker = Thread(target= self.__vad_loop)
         self.recognize_worker = Thread(target= self.__recognize_loop)
 
-        self.request_worker.start()
+        self.record_worker.start()
         self.vad_worker.start()
         self.recognize_worker.start()
 
@@ -165,11 +165,11 @@ class STTManager:
 
     def shutdown(self):
         logger.info('Shutting down STT')
-        self.request_queue.put(self._STOP)
+        self.recorder_queue.put(self._STOP)
         self.vad_queue.put(self._STOP)
-        self.recognizer_queue.put(self._STOP)
+        self.transcript_queue.put(self._STOP)
 
-        self.request_worker.join()
+        self.record_worker.join()
         self.vad_worker.join()
         self.recognize_worker.join()
 
