@@ -182,9 +182,11 @@ class STTManager:
         logger.info(f'STTManager has been initialized. Recorder = {self.recorder.__class__.__name__}, vad = {self.vad.__class__.__name__}, recognizer = {self.recognizer.__class__.__name__}')
 
     def start_listening(self):
+        logger.debug('Started Listening')
         self.listening_event.set()
 
     def stop_listening(self):
+        logger.debug('Stopped Listening')
         self.listening_event.clear()
 
     @property
@@ -225,35 +227,40 @@ class STTManager:
         history = deque(maxlen= 5)
 
         while not self.stop_event.is_set():
-            chunk = self.audio_queue.get()
+            try:
+                chunk = self.audio_queue.get()
 
-            if chunk is self._STOP:
-                self.utterance_queue.put(self._STOP)
-                break
+                if chunk is self._STOP:
+                    self.utterance_queue.put(self._STOP)
+                    break
 
-            result = self.vad.detect(chunk)
+                result = self.vad.detect(chunk)
 
-            if not recording:
-                history.append(chunk)
+                if not recording:
+                    history.append(chunk)
 
-            if self.vad.check_start(result):
-                speech_buffer.extend(history)
-                history.clear()
-                recording = True
-                continue
+                if self.vad.check_start(result):
+                    speech_buffer.extend(history)
+                    history.clear()
+                    recording = True
+                    continue
 
-            if recording:
-                speech_buffer.append(chunk)
+                if recording:
+                    speech_buffer.append(chunk)
 
-            if self.vad.check_end(result):
-                audio = np.ascontiguousarray(
-                    np.concatenate(speech_buffer)
-                )
-                self.utterance_queue.put(audio)
-                speech_buffer.clear()
-                history.clear()
-                recording = False
-                self.vad.reset()
+                if self.vad.check_end(result):
+                    audio = np.ascontiguousarray(
+                        np.concatenate(speech_buffer)
+                    )
+                    self.utterance_queue.put(audio)
+                    speech_buffer.clear()
+                    history.clear()
+                    recording = False
+                    self.vad.reset()
+
+            except Exception as e:
+                logger.error(f'Recorder worker crashed: {e}')
+                raise
 
     def __recognize_loop(self) -> None:
         ...
