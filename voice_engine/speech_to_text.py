@@ -1,4 +1,5 @@
 from queue import Queue
+from collections import deque
 from threading import Thread, Event
 from abc import ABC, abstractmethod
 from typing import Iterator, Literal
@@ -32,6 +33,14 @@ class BaseVAD(ABC):
 
     @abstractmethod
     def reset(self) -> None:   # mainly required when creating a new session, or switching audio source
+        ...
+
+    @abstractmethod
+    def check_start(self, detection: dict | None) -> bool:
+        ...
+
+    @abstractmethod
+    def check_end(self, detection: dict | None) -> bool:
         ...
 
 
@@ -95,6 +104,19 @@ class SileroVAD(BaseVAD):
     def reset(self):
         self.iterator.reset_states()
 
+    def __check(self, detection: dict | None, word: str) -> bool:
+        if detection is None:
+            return False
+
+        key = next(iter(detection))
+        return key == word
+
+    def check_start(self, detection: dict | None) -> bool:
+        return self.__check(detection, 'start')
+
+    def check_end(self, detection: dict | None) -> bool:
+        return self.__check(detection, 'end')
+
 
 # ----------------------------
 # Recognizer
@@ -126,6 +148,8 @@ class FasterWhisperRecognizer(BaseRecognizer):
 # Manager
 # ----------------------------
 class STTManager:
+    _STOP = object()
+
     def __init__(
         self, 
         recorder: BaseRecorder,
@@ -170,6 +194,7 @@ class STTManager:
     def shutdown(self):
         logger.info('Shutting down STT')
         self.stop_event.set()
+        self.listening_event.set()
 
         self.record_worker.join()
         self.vad_worker.join()
@@ -183,6 +208,10 @@ class STTManager:
             try:
                 self.listening_event.wait()
 
+                if self.stop_event.is_set():
+                    self.audio_queue.put(self._STOP)
+                    break
+
                 audio_chunk = self.recorder.record()
                 self.audio_queue.put(audio_chunk)
 
@@ -191,7 +220,40 @@ class STTManager:
                 raise
 
     def __vad_loop(self) -> None:
-        ...
+        speech_buffer = []
+        recording = False
+        history = deque(maxlen= 5)
+
+        while not self.stop_event.is_set():
+            chunk = self.audio_queue.get()
+
+            if chunk is self._STOP:
+                self.utterance_queue.put(self._STOP)
+                break
+
+            result = self.vad.detect(chunk)
+
+            if not recording:
+                history.append(chunk)
+
+            if self.vad.check_start(result):
+                speech_buffer.extend(history)
+                history.clear()
+                recording = True
+                continue
+
+            if recording:
+                speech_buffer.append(chunk)
+
+            if self.vad.check_end(result):
+                audio = np.ascontiguousarray(
+                    np.concatenate(speech_buffer)
+                )
+                self.utterance_queue.put(audio)
+                speech_buffer.clear()
+                history.clear()
+                recording = False
+                self.vad.reset()
 
     def __recognize_loop(self) -> None:
         ...
