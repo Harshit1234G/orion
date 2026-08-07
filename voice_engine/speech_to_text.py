@@ -243,27 +243,28 @@ class STTManager:
                 if not recording:
                     history.append(chunk)
 
-                if self.vad.check_start(result):
-                    logger.debug('Activity Detected')
-                    speech_buffer.extend(history)
-                    history.clear()
-                    recording = True
+                    if self.vad.check_start(result):
+                        logger.debug('Activity Detected')
+                        speech_buffer.extend(history)
+                        history.clear()
+                        recording = True
 
-                if recording:
+                else:
                     speech_buffer.append(chunk)
 
-                if self.vad.check_end(result):
-                    logger.debug('Activity Ended')
+                    if self.vad.check_end(result):
+                        logger.debug('Activity Ended')
 
-                    audio = np.concatenate(speech_buffer).astype(np.float32) / 32768.0
-                    audio = np.ascontiguousarray(audio)
+                        audio = np.concatenate(speech_buffer, axis= 0)
+                        audio = audio[:, 0].astype(np.float32) / 32768.0
+                        audio = np.ascontiguousarray(audio)
 
-                    self.utterance_queue.put(audio)
-                    speech_buffer.clear()
-                    history.clear()
+                        self.utterance_queue.put(audio)
+                        speech_buffer.clear()
+                        history.clear()
 
-                    recording = False
-                    self.vad.reset()
+                        recording = False
+                        self.vad.reset()
 
             except Exception as e:
                 logger.error(f'VAD worker crashed: {e}')
