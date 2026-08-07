@@ -125,9 +125,11 @@ class FasterWhisperRecognizer(BaseRecognizer):
         self,
         *, 
         model: Literal['tiny.en', 'base.en', 'small.en'] = 'base.en',
+        language: str = 'en',
         compute_type: str = 'int8'   # quantization for cpu
     ) -> None:
         super().__init__()
+        self.language = language
         self.model = WhisperModel(
             model_size_or_path= model,
             compute_type= compute_type
@@ -136,7 +138,7 @@ class FasterWhisperRecognizer(BaseRecognizer):
     def recognize(self, audio) -> Iterable:
         segments, _ = self.model.transcribe(
             audio,
-            language= 'en',
+            language= self.language,
             beam_size= 5,
             vad_filter= False
         )
@@ -228,7 +230,7 @@ class STTManager:
         recording = False
         history = deque(maxlen= 5)
 
-        while not self.stop_event.is_set():
+        while True:
             try:
                 chunk = self.audio_queue.get()
 
@@ -241,27 +243,27 @@ class STTManager:
                 if not recording:
                     history.append(chunk)
 
-                    if self.vad.check_start(result):
-                        logger.debug('Activity Detected')
-                        speech_buffer.extend(history)
-                        history.clear()
-                        recording = True
+                if self.vad.check_start(result):
+                    logger.debug('Activity Detected')
+                    speech_buffer.extend(history)
+                    history.clear()
+                    recording = True
 
-                else:
+                if recording:
                     speech_buffer.append(chunk)
 
-                    if self.vad.check_end(result):
-                        logger.debug('Activity Ended')
+                if self.vad.check_end(result):
+                    logger.debug('Activity Ended')
 
-                        audio = np.concatenate(speech_buffer).astype(np.float32) / 32768.0
-                        audio = np.ascontiguousarray(audio)
+                    audio = np.concatenate(speech_buffer).astype(np.float32) / 32768.0
+                    audio = np.ascontiguousarray(audio)
 
-                        self.utterance_queue.put(audio)
-                        speech_buffer.clear()
-                        history.clear()
+                    self.utterance_queue.put(audio)
+                    speech_buffer.clear()
+                    history.clear()
 
-                        recording = False
-                        self.vad.reset()
+                    recording = False
+                    self.vad.reset()
 
             except Exception as e:
                 logger.error(f'VAD worker crashed: {e}')
