@@ -2,7 +2,7 @@ from queue import Queue
 from collections import deque
 from threading import Thread, Event
 from abc import ABC, abstractmethod
-from typing import Iterator, Literal
+from typing import Literal, Iterable
 
 import sounddevice as sd
 import silero_vad as silero
@@ -46,7 +46,7 @@ class BaseVAD(ABC):
 
 class BaseRecognizer(ABC):
     @abstractmethod
-    def recognize(self, audio) -> Iterator:
+    def recognize(self, audio) -> Iterable:
         ...
 
 
@@ -95,8 +95,7 @@ class SileroVAD(BaseVAD):
     def detect(self, chunk: np.ndarray) -> dict[str, int | float] | None:
         # preprocessing
         chunk = chunk.squeeze()     # (C, 1) -> (C,)
-        norm_factor = -np.iinfo(np.int16).min
-        chunk = chunk.astype(np.float32) / norm_factor
+        chunk = chunk.astype(np.float32) / 32768.0
         chunk = torch.from_numpy(chunk)
 
         return self.iterator(chunk)
@@ -126,20 +125,20 @@ class FasterWhisperRecognizer(BaseRecognizer):
         self,
         *, 
         model: Literal['tiny.en', 'base.en', 'small.en'] = 'base.en',
-        language: str = 'en',
         compute_type: str = 'int8'   # quantization for cpu
     ) -> None:
         super().__init__()
-        self.language = language
         self.model = WhisperModel(
             model_size_or_path= model,
             compute_type= compute_type
         )
 
-    def recognize(self, audio) -> Iterator:
+    def recognize(self, audio) -> Iterable:
         segments, _ = self.model.transcribe(
             audio,
-            language= self.language
+            language= 'en',
+            beam_size= 5,
+            vad_filter= False
         )
         return segments
 
@@ -182,12 +181,15 @@ class STTManager:
         logger.info(f'STTManager has been initialized. Recorder = {self.recorder.__class__.__name__}, vad = {self.vad.__class__.__name__}, recognizer = {self.recognizer.__class__.__name__}')
 
     def start_listening(self):
-        logger.debug('Started Listening')
+        logger.info('Started Listening')
         self.listening_event.set()
 
     def stop_listening(self):
-        logger.debug('Stopped Listening')
+        logger.info('Stopped Listening')
         self.listening_event.clear()
+
+    def get_transcript(self) -> str:
+        return self.transcript_queue.get()
 
     @property
     def is_listening(self):
@@ -206,7 +208,7 @@ class STTManager:
         self.vad.reset()
 
     def __recorder_loop(self) -> None:
-        while not self.stop_event.is_set():
+        while True:
             try:
                 self.listening_event.wait()
 
@@ -239,28 +241,57 @@ class STTManager:
                 if not recording:
                     history.append(chunk)
 
-                if self.vad.check_start(result):
-                    speech_buffer.extend(history)
-                    history.clear()
-                    recording = True
-                    continue
+                    if self.vad.check_start(result):
+                        logger.debug('Activity Detected')
+                        speech_buffer.extend(history)
+                        history.clear()
+                        recording = True
 
-                if recording:
+                else:
                     speech_buffer.append(chunk)
 
-                if self.vad.check_end(result):
-                    audio = np.ascontiguousarray(
-                        np.concatenate(speech_buffer)
-                    )
-                    self.utterance_queue.put(audio)
-                    speech_buffer.clear()
-                    history.clear()
-                    recording = False
-                    self.vad.reset()
+                    if self.vad.check_end(result):
+                        logger.debug('Activity Ended')
+
+                        audio = np.concatenate(speech_buffer).astype(np.float32) / 32768.0
+                        audio = np.ascontiguousarray(audio)
+
+                        self.utterance_queue.put(audio)
+                        speech_buffer.clear()
+                        history.clear()
+
+                        recording = False
+                        self.vad.reset()
 
             except Exception as e:
-                logger.error(f'Recorder worker crashed: {e}')
+                logger.error(f'VAD worker crashed: {e}')
                 raise
 
     def __recognize_loop(self) -> None:
-        ...
+        while True:
+            try:
+                audio = self.utterance_queue.get()
+
+                if audio is self._STOP:
+                    break
+
+                logger.debug(
+                    f'Audio dtype={audio.dtype}, '
+                    f'shape={audio.shape}, '
+                    f'min={audio.min()}, '
+                    f'max={audio.max()}, '
+                    f'duration={len(audio) / 16000:.2f}s'
+                )
+
+                segments = list(self.recognizer.recognize(audio))
+                logger.debug(f'Segments Generated: {len(segments)}')
+
+                transcript = ''.join(
+                    segment.text
+                    for segment in segments
+                )
+                logger.debug(f'Transcript: {transcript}')
+                self.transcript_queue.put(transcript)
+
+            except Exception as e:
+                logger.error(f'Recognize worker crashed: {e}')
