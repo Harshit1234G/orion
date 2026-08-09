@@ -17,8 +17,6 @@ from .speech_to_text import (
     STTManager
 )
 
-from .engine import VoiceEngine
-
 __all__ = [
     BaseSynthesizer,
     BaseAudioPlayer,
@@ -33,6 +31,5 @@ __all__ = [
     SoundDeviceRecorder,
     FasterWhisperRecognizer,
     SileroVAD,
-    STTManager,
-    VoiceEngine
+    STTManager
 ]
