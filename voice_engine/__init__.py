@@ -18,18 +18,18 @@ from .speech_to_text import (
 )
 
 __all__ = [
-    BaseSynthesizer,
-    BaseAudioPlayer,
-    SpeechRequest,
-    TTSState,
-    SoundDevicePlayer,
-    PiperSynthesizer,
-    TTSManager,
-    BaseRecognizer,
-    BaseRecorder,
-    BaseVAD,
-    SoundDeviceRecorder,
-    FasterWhisperRecognizer,
-    SileroVAD,
-    STTManager
+    'BaseSynthesizer',
+    'BaseAudioPlayer',
+    'SpeechRequest',
+    'TTSState',
+    'SoundDevicePlayer',
+    'PiperSynthesizer',
+    'TTSManager',
+    'BaseRecognizer',
+    'BaseRecorder',
+    'BaseVAD',
+    'SoundDeviceRecorder',
+    'FasterWhisperRecognizer',
+    'SileroVAD',
+    'STTManager'
 ]
