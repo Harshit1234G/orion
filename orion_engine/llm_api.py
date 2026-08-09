@@ -1,5 +1,7 @@
 from enum import Enum
+from dataclasses import dataclass
 from openai import OpenAI
+from utils import logger
 
 
 # ----------------------------
@@ -12,18 +14,17 @@ class OpenAIModel(str, Enum):
     ADVANCED_REASONING = 'gpt-5.6-sol'
 
 
-class TaskType(str, Enum):
-    ...
-
-
-class MODEL_CONFIG:
-    ...
+@dataclass(frozen= True)
+class LLMRequirements:
+    name: str
+    model: OpenAIModel
+    temperature: float = 0.0
 
 
 # ----------------------------
 # Main Classes
 # ----------------------------
-class LLMClient:
+class OpenAIClient:
     ...
 
 
