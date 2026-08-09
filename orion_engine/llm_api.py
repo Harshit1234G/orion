@@ -42,6 +42,7 @@ class OpenAIClient:
         model: OpenAIModel,
         messages: list[dict],
         temperature: float,
+        return_response_object: bool = False,
         **kwargs
     ):
         response = self.client.chat.completions.create(
@@ -50,7 +51,11 @@ class OpenAIClient:
             temperature= temperature,
             **kwargs
         )
-        return response
+        
+        if return_response_object:
+            return response
+        
+        return response.choices[0].message.content
 
 
 class APIRouter:
