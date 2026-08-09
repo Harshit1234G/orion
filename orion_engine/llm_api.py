@@ -16,8 +16,9 @@ class OpenAIModel(str, Enum):
 
 
 @dataclass(frozen= True)
-class LLMRequirements:
+class Capability:
     name: str
+    purpose: str
     model: OpenAIModel
     temperature: float = 0.0
 
@@ -51,7 +52,7 @@ class OpenAIClient:
             temperature= temperature,
             **kwargs
         )
-        
+
         if return_response_object:
             return response
         
@@ -59,5 +60,12 @@ class OpenAIClient:
 
 
 class APIRouter:
-    ...
+    def __init__(self):
+        self._capabilities = {}
+
+    def register(self, capability: Capability) -> None:
+        self._capabilities[capability.name] = capability
+
+    def get_capability(self, name: str) -> Capability | None:
+        return self._capabilities.get(name)
 
