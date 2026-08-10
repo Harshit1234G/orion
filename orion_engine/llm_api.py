@@ -59,7 +59,7 @@ class OpenAIClient:
         return response.choices[0].message.content
 
 
-class APIRouter:
+class CapabilityRegistery:
     def __init__(self):
         self._capabilities = {}
 

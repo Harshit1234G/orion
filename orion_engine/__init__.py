@@ -1,7 +1,7 @@
 from .llm_api import (
     OpenAIModel, 
     OpenAIClient, 
-    APIRouter,
+    CapabilityRegistery,
     Capability
 )
 
@@ -9,6 +9,6 @@ from .llm_api import (
 __all__ = [
     'OpenAIModel', 
     'OpenAIClient', 
-    'APIRouter',
+    'CapabilityRegistery',
     'Capability'
 ]
