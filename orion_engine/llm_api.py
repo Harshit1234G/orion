@@ -1,5 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
+import json
 from openai import OpenAI
 
 from utils import logger, load_api_key_from_env, load_api_key_keyring
@@ -66,6 +67,8 @@ class CapabilityRegistery:
     def register(self, capability: Capability) -> None:
         self._capabilities[capability.name] = capability
 
-    def get_capability(self, name: str) -> Capability | None:
+    def get(self, name: str) -> Capability | None:
         return self._capabilities.get(name)
 
+    def __str__(self):
+        return json.dumps(self._capabilities)
