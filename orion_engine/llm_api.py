@@ -1,5 +1,5 @@
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import json
 from openai import OpenAI
 
@@ -63,12 +63,14 @@ class OpenAIClient:
 class CapabilityRegistery:
     def __init__(self):
         self._capabilities = {}
+        self.__converted = {}
 
     def register(self, capability: Capability) -> None:
         self._capabilities[capability.name] = capability
+        self.__converted[capability.name] = asdict(capability)
 
     def get(self, name: str) -> Capability | None:
         return self._capabilities.get(name)
 
     def __str__(self):
-        return json.dumps(self._capabilities)
+        return json.dumps(self.__converted)
