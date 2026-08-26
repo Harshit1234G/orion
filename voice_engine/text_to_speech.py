@@ -12,6 +12,9 @@ import sounddevice as sd
 from utils import logger
 
 
+LOGGING_NAME = '[TTSManager]'
+
+
 # ----------------------------
 # Abstract base classes
 # ----------------------------
@@ -136,7 +139,7 @@ class TTSManager:
         self.request_worker.start()
         self.audio_worker.start()
 
-        logger.info(f'TTSManager has been initialized. Synthesizer = {self.synthesizer.__class__.__name__}, Audio Player = {self.audio_player.__class__.__name__}')
+        logger.info(f'{LOGGING_NAME} Initialized Successfully. SYNTHESIZER = {self.synthesizer.__class__.__name__}, AUDIO_PLAYER = {self.audio_player.__class__.__name__}')
 
     def say(
         self,
@@ -144,7 +147,7 @@ class TTSManager:
         *,
         interrupt: bool = True
     ):
-        logger.info(f'TTS request recieved, text={text[:80]!r}, {interrupt=}')
+        logger.info(f'{LOGGING_NAME} Request Recieved. text={text[:80]!r}, {interrupt=}')
         self.request_queue.put(
             SpeechRequest(
                 text, 
@@ -154,14 +157,13 @@ class TTSManager:
 
     def interrupt(self):
         if self.interruptable_current_request:
-            logger.info('TTS Interrupted')
+            logger.info(f'{LOGGING_NAME} Interrupted.')
             self.stop_event.set()
             self.state = TTSState.INTERRUPTED
             self.__clear_queue(self.audio_queue)
             self.__clear_queue(self.request_queue)
 
     def shutdown(self):
-        logger.info('Shutting down TTS')
         self.request_queue.put(self._STOP)
         self.audio_queue.put(self._STOP)
 
@@ -169,6 +171,7 @@ class TTSManager:
         self.audio_worker.join()
 
         self.audio_player.stop()
+        logger.info(f'{LOGGING_NAME} Shutting Down.')
 
     @property
     def is_speaking(self) -> bool:
@@ -191,22 +194,22 @@ class TTSManager:
                     self.audio_queue.put(self._STOP)
                     break
 
-                logger.debug(f'Synthesis started for {len(request.text)} chars.')
+                logger.debug(f'{LOGGING_NAME} Synthesis started for {len(request.text)} chars.')
 
                 self.stop_event.clear()
                 self.interruptable_current_request = request.interrupt
 
                 for chunk in self.synthesizer.synthesize(request.text):
                     if request.interrupt and self.stop_event.is_set():
-                        logger.debug('Synthesis interrupted.')
+                        logger.debug(f'{LOGGING_NAME} Synthesis Interrupted.')
                         break
 
                     self.audio_queue.put(chunk)
                 self.audio_queue.put(self._END_OF_REQUEST)
-                logger.debug('Synthesis completed.')
+                logger.debug(f'{LOGGING_NAME} Synthesis Completed.')
 
             except Exception as e:
-                logger.error(f'Synthesis worker crashed: {e}')
+                logger.error(f'{LOGGING_NAME} Synthesis worker crashed: {e}')
                 raise
 
     def __playback_loop(self):
@@ -217,7 +220,7 @@ class TTSManager:
                     break
 
                 if chunk is self._END_OF_REQUEST:
-                    logger.debug('Playback finished')
+                    logger.debug(f'{LOGGING_NAME} Playback Finished.')
                     self.state = (
                         TTSState.IDLE 
                         if self.state != TTSState.INTERRUPTED else 
@@ -229,10 +232,10 @@ class TTSManager:
                     continue
 
                 if self.state != TTSState.PLAYING:
-                    logger.debug('Playback started')
+                    logger.debug(f'{LOGGING_NAME} Playback Started.')
 
                 self.state = TTSState.PLAYING
                 self.audio_player.play(chunk)
 
             except Exception as e:
-                logger.error(f'Playback worker crashed: {e}')
+                logger.error(f'{LOGGING_NAME} Playback worker crashed: {e}')

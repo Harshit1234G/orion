@@ -6,6 +6,9 @@ from openai import OpenAI
 from utils import logger, load_api_key_from_env, load_api_key_keyring
 
 
+LOGGING_NAME = '[LLM_API]'
+
+
 # ----------------------------
 # Helper Classes
 # ----------------------------
@@ -32,11 +35,11 @@ class OpenAIClient:
         api_key = load_api_key_from_env() or load_api_key_keyring()
 
         if api_key is None:
-            logger.error('No OpenAI API key found. OpenAIClient crashed.')
-            raise ValueError('No OpenAI API key found. OpenAIClient crashed.')
+            logger.error(f'{LOGGING_NAME} OpenAIClient Crashed: No OpenAI Key found.')
+            raise
         
         self.client = OpenAI(api_key= api_key)
-        logger.info('OpenAIClient loaded successfully')
+        logger.info(f'{LOGGING_NAME} Initialized Successfully.')
 
     def generate(
         self,
@@ -55,13 +58,15 @@ class OpenAIClient:
                 **kwargs
             )
 
+            logger.info(f'{LOGGING_NAME} Response Received Successfully.')
+
             if return_response_object:
                 return response
             
             return response.choices[0].message.content
 
         except Exception as e:
-            logger.error(f'OpenAIClient Error: {e}')
+            logger.error(f'{LOGGING_NAME} OpenAIClient Error: {e}')
             raise
 
 
@@ -71,7 +76,7 @@ class CapabilityRegistery:
 
     def register(self, capability: Capability) -> None:
         self._capabilities[capability.name] = capability
-        logger.info(f'Registered: {capability.name}')
+        logger.info(f'Capability Registered: {capability.name}')
 
     def get(self, name: str) -> Capability | None:
         return self._capabilities.get(name)

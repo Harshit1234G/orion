@@ -7,6 +7,9 @@ import prompts
 import utils
 
 
+LOGGING_NAME = '[OrionEngine]'
+
+
 class OrionEngine:
     def __init__(
         self,
@@ -23,7 +26,7 @@ class OrionEngine:
         self.__init_tts()
         self.__init_stt()
 
-        utils.logger.info('OrionEngine Initialized.')
+        utils.logger.info(f'{LOGGING_NAME} Initialized Successfully.')
 
     def __init_llm(self) -> None:
         self.llm_client = llm.OpenAIClient()

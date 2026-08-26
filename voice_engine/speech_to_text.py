@@ -13,6 +13,9 @@ import torch
 from utils import logger
 
 
+LOGGING_NAME = '[STTManager]'
+
+
 # ----------------------------
 # Abstract base classes
 # ----------------------------
@@ -180,14 +183,14 @@ class STTManager:
         self.vad_worker.start()
         self.recognize_worker.start()
 
-        logger.info(f'STTManager has been initialized. Recorder = {self.recorder.__class__.__name__}, vad = {self.vad.__class__.__name__}, recognizer = {self.recognizer.__class__.__name__}')
+        logger.info(f'{LOGGING_NAME} Initialized Successfully. RECORDER: {self.recorder.__class__.__name__}, VAD: {self.vad.__class__.__name__}, RECOGNIZER: {self.recognizer.__class__.__name__}')
 
     def start_listening(self):
-        logger.info('Started Listening')
+        logger.info(f'{LOGGING_NAME} Started Listening.')
         self.listening_event.set()
 
     def stop_listening(self):
-        logger.info('Stopped Listening')
+        logger.info(f'{LOGGING_NAME} Stopped Listening.')
         self.listening_event.clear()
 
     def get_transcript(self) -> str:
@@ -198,7 +201,6 @@ class STTManager:
         return self.listening_event.is_set()
 
     def shutdown(self):
-        logger.info('Shutting down STT')
         self.stop_event.set()
         self.listening_event.set()
 
@@ -208,6 +210,7 @@ class STTManager:
 
         self.recorder.stop()
         self.vad.reset()
+        logger.info(f'{LOGGING_NAME} Shutting Down.')
 
     def __recorder_loop(self) -> None:
         while True:
@@ -222,7 +225,7 @@ class STTManager:
                 self.audio_queue.put(audio_chunk)
 
             except Exception as e:
-                logger.error(f'Recorder worker crashed: {e}')
+                logger.error(f'{LOGGING_NAME} Recorder worker crashed: {e}')
                 raise
 
     def __vad_loop(self) -> None:
@@ -244,7 +247,7 @@ class STTManager:
                     history.append(chunk)
 
                     if self.vad.check_start(result):
-                        logger.debug('Activity Detected')
+                        logger.debug(f'{LOGGING_NAME} Activity Detected.')
                         speech_buffer.extend(history)
                         history.clear()
                         recording = True
@@ -253,7 +256,7 @@ class STTManager:
                     speech_buffer.append(chunk)
 
                     if self.vad.check_end(result):
-                        logger.debug('Activity Ended')
+                        logger.debug(f'{LOGGING_NAME} Activity Ended.')
 
                         audio = np.concatenate(speech_buffer, axis= 0)
                         audio = audio[:, 0].astype(np.float32) / 32768.0
@@ -267,7 +270,7 @@ class STTManager:
                         self.vad.reset()
 
             except Exception as e:
-                logger.error(f'VAD worker crashed: {e}')
+                logger.error(f'{LOGGING_NAME} VAD worker crashed: {e}')
                 raise
 
     def __recognize_loop(self) -> None:
@@ -287,14 +290,14 @@ class STTManager:
                 )
 
                 segments = list(self.recognizer.recognize(audio))
-                logger.debug(f'Segments Generated: {len(segments)}')
+                logger.debug(f'{LOGGING_NAME} Segments Generated: {len(segments)}')
 
                 transcript = ''.join(
                     segment.text
                     for segment in segments
                 )
-                logger.debug(f'Transcript: {transcript}')
+                logger.debug(f'{LOGGING_NAME} Transcript: {transcript}')
                 self.transcript_queue.put(transcript)
 
             except Exception as e:
-                logger.error(f'Recognize worker crashed: {e}')
+                logger.error(f'{LOGGING_NAME} Recognize worker crashed: {e}')
