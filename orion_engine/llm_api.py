@@ -1,5 +1,5 @@
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 import json
 from openai import OpenAI
 
@@ -78,7 +78,7 @@ class CapabilityRegistery:
 
     def __str__(self):
         capabilities = {
-            name: asdict(capability) 
+            name: capability.purpose 
             for name, capability in 
             self._capabilities.items()
         }
