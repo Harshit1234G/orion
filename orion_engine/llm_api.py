@@ -47,30 +47,39 @@ class OpenAIClient:
         return_response_object: bool = False,
         **kwargs
     ):
-        response = self.client.chat.completions.create(
-            model= model,
-            messages= messages,
-            temperature= temperature,
-            **kwargs
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model= model,
+                messages= messages,
+                temperature= temperature,
+                **kwargs
+            )
 
-        if return_response_object:
-            return response
-        
-        return response.choices[0].message.content
+            if return_response_object:
+                return response
+            
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f'OpenAIClient Error: {e}')
+            raise
 
 
 class CapabilityRegistery:
     def __init__(self):
         self._capabilities = {}
-        self.__converted = {}
 
     def register(self, capability: Capability) -> None:
         self._capabilities[capability.name] = capability
-        self.__converted[capability.name] = asdict(capability)
+        logger.info(f'Registered: {capability.name}')
 
     def get(self, name: str) -> Capability | None:
         return self._capabilities.get(name)
 
     def __str__(self):
-        return json.dumps(self.__converted)
+        capabilities = {
+            name: asdict(capability) 
+            for name, capability in 
+            self._capabilities.items()
+        }
+        return json.dumps(capabilities)
