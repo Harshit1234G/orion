@@ -126,7 +126,7 @@ class FasterWhisperRecognizer(BaseRecognizer):
         *, 
         model: Literal['tiny.en', 'base.en', 'small.en'] = 'base.en',
         language: str = 'en',
-        compute_type: str = 'int8'   # quantization for cpu
+        compute_type: str = 'auto'
     ) -> None:
         super().__init__()
         self.language = language

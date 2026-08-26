@@ -4,11 +4,13 @@ from .llm_api import (
     CapabilityRegistery,
     Capability
 )
+from .engine import OrionEngine
 
 
 __all__ = [
     'OpenAIModel', 
     'OpenAIClient', 
     'CapabilityRegistery',
-    'Capability'
+    'Capability',
+    'OrionEngine'
 ]

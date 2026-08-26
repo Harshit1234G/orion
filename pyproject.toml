@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "faster-whisper>=1.2.1",
+    "ipywidgets>=8.1.9",
+    "jupyter>=1.1.1",
     "keyring>=25.7.0",
     "openai>=2.46.0",
     "piper-tts>=1.5.0",
