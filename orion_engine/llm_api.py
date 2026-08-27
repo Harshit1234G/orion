@@ -1,6 +1,4 @@
 from enum import Enum
-from dataclasses import dataclass
-import json
 from openai import OpenAI
 
 from utils import logger, load_api_key_from_env, load_api_key_keyring
@@ -19,24 +17,21 @@ class OpenAIModel(str, Enum):
     ADVANCED_REASONING = 'gpt-5.6-sol'
 
 
-@dataclass(frozen= True)
-class Capability:
-    name: str
-    purpose: str
-    model: OpenAIModel
-    temperature: float = 0.0
-
-
 # ----------------------------
 # Main Classes
 # ----------------------------
 class OpenAIClient:
     def __init__(self):
-        api_key = load_api_key_from_env() or load_api_key_keyring()
+        api_key = (
+            load_api_key_from_env() 
+            or 
+            load_api_key_keyring()
+        )
 
         if api_key is None:
-            logger.error(f'{LOGGING_NAME} OpenAIClient Crashed: No OpenAI Key found.')
-            raise
+            error = f'{LOGGING_NAME} OpenAIClient Crashed: No OpenAI Key found.'
+            logger.error(error)
+            raise RuntimeError(error)
         
         self.client = OpenAI(api_key= api_key)
         logger.info(f'{LOGGING_NAME} Initialized Successfully.')
@@ -44,14 +39,16 @@ class OpenAIClient:
     def generate(
         self,
         *,
-        model: OpenAIModel,
+        model: str,
         messages: list[dict],
         temperature: float,
         return_response_object: bool = False,
         **kwargs
     ):
+
+        ##TODO:  Change the API generation code
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.responses.create(
                 model= model,
                 messages= messages,
                 temperature= temperature,
@@ -68,23 +65,3 @@ class OpenAIClient:
         except Exception as e:
             logger.error(f'{LOGGING_NAME} OpenAIClient Error: {e}')
             raise
-
-
-class CapabilityRegistery:
-    def __init__(self):
-        self._capabilities = {}
-
-    def register(self, capability: Capability) -> None:
-        self._capabilities[capability.name] = capability
-        logger.info(f'Capability Registered: {capability.name}')
-
-    def get(self, name: str) -> Capability | None:
-        return self._capabilities.get(name)
-
-    def __str__(self):
-        capabilities = {
-            name: capability.purpose 
-            for name, capability in 
-            self._capabilities.items()
-        }
-        return json.dumps(capabilities)
