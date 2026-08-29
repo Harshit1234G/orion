@@ -39,7 +39,7 @@ class OpenAIClient:
     def generate(
         self,
         *,
-        model: str,
+        model: Models,
         input: str,
         temperature: float,
         return_response_object: bool = False,
