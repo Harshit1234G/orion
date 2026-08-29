@@ -10,7 +10,7 @@ LOGGING_NAME = '[LLM_API]'
 # ----------------------------
 # Helper Classes
 # ----------------------------
-class OpenAIModel(str, Enum):
+class Models(str, Enum):
     FAST = 'gpt-5-nano'
     GENERAL = 'gpt-5.6-luna'
     REASONING = 'gpt-5.6-terra'
@@ -40,28 +40,21 @@ class OpenAIClient:
         self,
         *,
         model: str,
-        messages: list[dict],
+        input: str,
         temperature: float,
         return_response_object: bool = False,
         **kwargs
     ):
+        response = self.client.responses.create(
+            model= model,
+            input= input,
+            temperature= temperature,
+            **kwargs
+        )
 
-        ##TODO:  Change the API generation code
-        try:
-            response = self.client.responses.create(
-                model= model,
-                messages= messages,
-                temperature= temperature,
-                **kwargs
-            )
+        logger.info(f'{LOGGING_NAME} Response Received Successfully.')
 
-            logger.info(f'{LOGGING_NAME} Response Received Successfully.')
-
-            if return_response_object:
-                return response
-            
-            return response.choices[0].message.content
-
-        except Exception as e:
-            logger.error(f'{LOGGING_NAME} OpenAIClient Error: {e}')
-            raise
+        if return_response_object:
+            return response
+        
+        return response.output_text
