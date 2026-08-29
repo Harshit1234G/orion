@@ -1,61 +1,42 @@
 import sqlite3
+from typing import Any
 
 
 class DatabaseConnector:
-    """
-    A context manager for connecting to a sqlite database.
-
-    Usage:
-    ```
-    with DatabaseConnector() as connector:
-        # Use the connector to perform database operations within this block
-        # The connection and cursor are automatically closed when the block exits.
-    ```
-
-    Attributes:
-    - `db`: Represents the sqlite database connection.
-    - `cursor`: Represents the database cursor used for executing SQL queries.
-    The attributes `db` and `cursor` are created upon entering the context and are used for database operations.
-
-    Example:
-    ```
-    with DatabaseConnector() as connector:
-        connector.cursor.execute("SELECT * FROM students;")
-        results = connector.cursor.fetchall()
-        for row in results:
-            print(row)
-    ```
-
-    Note:
-    - Ensure that the sqlite server is running and accessible with the provided credentials.
-    - It is recommended to use the `with` statement to ensure proper resource cleanup.
-    - The `exc_tb` parameter is related to exception handling and is provided by the `with` statement when an exception occurs.
-    """
-    def __init__(self, database: str):
+    def __init__(self, database: str) -> None:
         self.database = database
+        self.db = None
+        self.cursor = None
 
     def __enter__(self):
-        """
-        Establishes a connection to the sqlite database and returns the DatabaseConnector instance.
-
-        Returns:
-        - DatabaseConnector: The instance of the DatabaseConnector with an active connection and cursor.
-        """
-
         self.db = sqlite3.connect(self.database)
         self.cursor = self.db.cursor()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Closes the database cursor and connection when exiting the context.
-
-        Parameters:
-        - exc_type: The type of exception that occurred, if any.
-        - exc_val: The exception instance, if any.
-        - exc_tb: The traceback object, if any.
-        """
-        if self.cursor:
+        if self.cursor is not None:
             self.cursor.close()
-        if self.db:
+
+        if self.db is not None:
             self.db.close()
+
+    def execute(self, query: str, parameters: tuple = ()) -> None:
+        if self.cursor is None:
+            raise RuntimeError('Database connection is not open.')
+
+        self.cursor.execute(query, parameters)
+        self.db.commit()
+
+    def fetch_one(self, query: str, parameters: tuple = ()) -> Any:
+        if self.cursor is None:
+            raise RuntimeError('Database connection is not open.')
+
+        self.cursor.execute(query, parameters)
+        return self.cursor.fetchone()
+
+    def fetch_all(self, query: str, parameters: tuple = ()) -> list[Any]:
+        if self.cursor is None:
+            raise RuntimeError('Database connection is not open.')
+
+        self.cursor.execute(query, parameters)
+        return self.cursor.fetchall()
