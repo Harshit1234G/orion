@@ -1,4 +1,5 @@
 from enum import Enum
+from dataclasses import dataclass
 from openai import OpenAI
 
 from utils import logger, load_api_key_from_env, load_api_key_keyring
@@ -10,11 +11,35 @@ LOGGING_NAME = '[LLM_API]'
 # ----------------------------
 # Helper Classes
 # ----------------------------
-class Models(str, Enum):
+class OpenAIModels(str, Enum):
     FAST = 'gpt-5-nano'
     GENERAL = 'gpt-5.6-luna'
     REASONING = 'gpt-5.6-terra'
     ADVANCED_REASONING = 'gpt-5.6-sol'
+
+
+@dataclass(frozen= True)
+class Parameters:
+    properties: dict[dict]      # this will contain all the function parameters and there dtype as "<parameter>": {"type": "<dtype>"}
+    required: list[str]
+    type: str = 'object'
+    additionalProperties: bool = False
+
+
+@dataclass(frozen= True)
+class Tool:
+    name: str
+    description: str
+    parameters: Parameters
+    type: str = 'function'
+
+
+@dataclass(frozen= True)
+class OpenAIToolNamespaceSchema:
+    name: str
+    description: str
+    tools: list[Tool]
+    type: str = 'namespace'
 
 
 # ----------------------------
@@ -39,7 +64,7 @@ class OpenAIClient:
     def generate(
         self,
         *,
-        model: Models,
+        model: OpenAIModels,
         input: str,
         return_response_object: bool = True,
         **kwargs

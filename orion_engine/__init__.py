@@ -1,12 +1,18 @@
 from .llm_api import (
-    Models, 
-    OpenAIClient
+    OpenAIModels, 
+    OpenAIClient,
+    Parameters,
+    Tool,
+    OpenAIToolNamespaceSchema
 )
 from .engine import OrionEngine
 
 
 __all__ = [
-    'Models', 
+    'OpenAIModels', 
     'OpenAIClient',
-    'OrionEngine'
+    'OrionEngine',
+    'Parameters',
+    'Tool',
+    'OpenAIToolNamespaceSchema'
 ]
