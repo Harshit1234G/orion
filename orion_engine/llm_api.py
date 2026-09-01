@@ -1,6 +1,5 @@
 from enum import Enum
 from openai import OpenAI
-from mcp import Tool
 
 from utils import logger, load_api_key_from_env, load_api_key_keyring
 
@@ -42,14 +41,12 @@ class OpenAIClient:
         *,
         model: Models,
         input: str,
-        temperature: float,
-        return_response_object: bool = False,
+        return_response_object: bool = True,
         **kwargs
     ):
         response = self.client.responses.create(
-            model= model,
+            model= str(model),
             input= input,
-            temperature= temperature,
             **kwargs
         )
 
@@ -59,17 +56,3 @@ class OpenAIClient:
             return response
         
         return response.output_text
-
-    def mcp_tools_to_openai_tools(self, tools: list[Tool]) -> list[dict]:
-        openai_tools = []
-
-        for tool in tools:
-            schema = {
-                'type': 'function',
-                'name': tool.name,
-                'description': tool.description or '',
-                'parameters': tool.input_schema
-            }
-            openai_tools.append(schema)
-
-        return openai_tools
