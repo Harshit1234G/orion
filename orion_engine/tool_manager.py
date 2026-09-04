@@ -6,9 +6,16 @@ from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
 
 
 class ToolManager:
-    def __init__(self):
-        self.namespaces = []
-        self.callable_tools = {}
+    namespaces = []
+    callable_tools = {}
+
+    @classmethod
+    def append_to_namespaces(cls, namespace: dict) -> None:
+        cls.namespaces.append(namespace)
+
+    @classmethod
+    def add_to_callable_tools(cls, tool: str, func: Callable) -> None:
+        cls.callable_tools[tool] = func
 
     def __initialize_namespace(self, obj: object) -> OpenAIToolNamespaceSchema:
         try:
@@ -76,7 +83,7 @@ class ToolManager:
 
             for method in public_methods:
                 callable_method = getattr(obj, method)
-                self.callable_tools[method] = callable_method
+                self.add_to_callable_tools(method, callable_method)
     
                 namespace.tools.append(
                     Tool(
@@ -86,10 +93,7 @@ class ToolManager:
                     )
                 )
 
-            self.namespaces.append(asdict(namespace))
+            self.append_to_namespaces(asdict(namespace))
             return obj
         
         return wrapper
-
-
-GLOBAL_TOOL_MANAGER = ToolManager()

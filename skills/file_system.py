@@ -1,8 +1,10 @@
 from pathlib import Path
-from orion_engine import GLOBAL_TOOL_MANAGER
+from orion_engine import ToolManager
 
 
-@GLOBAL_TOOL_MANAGER.tool
+tm = ToolManager()
+
+@tm.tool
 class FileSystem:
     def __init__(self, root: str | Path):
         self.root = Path(root).expanduser().resolve()
