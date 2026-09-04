@@ -90,3 +90,6 @@ class ToolManager:
             return obj
         
         return wrapper
+
+
+GLOBAL_TOOL_MANAGER = ToolManager()

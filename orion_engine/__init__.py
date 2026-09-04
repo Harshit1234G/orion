@@ -6,7 +6,7 @@ from .llm_api import (
     OpenAIToolNamespaceSchema
 )
 from .engine import OrionEngine
-from .tool_manager import ToolManager
+from .tool_manager import ToolManager, GLOBAL_TOOL_MANAGER
 
 
 __all__ = [
@@ -16,5 +16,6 @@ __all__ = [
     'Parameters',
     'Tool',
     'OpenAIToolNamespaceSchema',
-    'ToolManager'
+    'ToolManager',
+    'GLOBAL_TOOL_MANAGER'
 ]
