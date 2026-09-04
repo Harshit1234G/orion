@@ -113,3 +113,6 @@ class ToolManager:
             return obj
         
         return wrapper
+
+    def call(self, name: str, *args, **kwargs) -> Any:
+        return self.callable_tools[name](*args, **kwargs)
