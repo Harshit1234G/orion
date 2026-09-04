@@ -17,15 +17,17 @@ class OrionEngine:
         *,
         recognition_model: str = 'base.en',
         use_cuda_for_voice: bool = False,
+        **skill_kwargs
     ) -> None:
         self._agent_voice = agent_voice
         self._use_cuda_for_voice = use_cuda_for_voice
         self._recognition_model = recognition_model
 
         self.llm_client = llm.OpenAIClient()
+        self.tool_manager = tm.ToolManager()
         self.__init_tts()
         self.__init_stt()
-        self.__init_tools()
+        self.__init__skills(**skill_kwargs)
 
         utils.logger.info(f'{LOGGING_NAME} Initialized Successfully.')
 
@@ -54,6 +56,20 @@ class OrionEngine:
             recognizer= self.__recognizer
         )
 
-    def __init_tools(self) -> None:
-        self.tool_manager = tm.ToolManager()
-        
+    @staticmethod
+    def __get_skill_specific_kwargs(
+        name: str, 
+        keyword_arguments: dict
+    ) -> dict:
+        prefix = f'{name}__'
+
+        return {
+            key.removeprefix(prefix): value
+            for key, value in keyword_arguments.items()
+            if key.startswith(prefix)
+        }
+
+    def __init__skills(self, **kwargs) -> None:
+        objects = [
+            skills.FileSystem(**self.__get_skill_specific_kwargs('filesystem', kwargs))
+        ]
