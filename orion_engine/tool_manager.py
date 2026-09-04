@@ -2,7 +2,12 @@ import inspect
 from functools import wraps
 from typing import Any, Callable
 from dataclasses import asdict
+
 from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
+from utils import logger
+
+
+LOGGING_NAME = '[ToolManager]'
 
 
 class ToolManager:
@@ -75,25 +80,36 @@ class ToolManager:
         @wraps(cls)
         def wrapper(*args, **kwargs):
             if not inspect.isclass(cls):
-                raise ValueError(f'{cls} is not a class.')
-            
-            obj = cls(*args, **kwargs)
-            namespace = self.__initialize_namespace(obj)
-            public_methods = self.__get_public_methods(obj)
+                error = f'{LOGGING_NAME} {cls} is not a class.'
+                logger.error(error)
+                raise ValueError(error)
 
-            for method in public_methods:
-                callable_method = getattr(obj, method)
-                self.add_to_callable_tools(method, callable_method)
-    
-                namespace.tools.append(
-                    Tool(
-                        name= method,
-                        description= inspect.getdoc(callable_method),
-                        parameters= self.__create_parameters_for_tools(callable_method)
+            try:
+                obj = cls(*args, **kwargs)
+                namespace = self.__initialize_namespace(obj)
+                public_methods = self.__get_public_methods(obj)
+
+                for method in public_methods:
+                    callable_method = getattr(obj, method)
+                    self.add_to_callable_tools(method, callable_method)
+        
+                    namespace.tools.append(
+                        Tool(
+                            name= method,
+                            description= inspect.getdoc(callable_method),
+                            parameters= self.__create_parameters_for_tools(callable_method)
+                        )
                     )
-                )
 
-            self.append_to_namespaces(asdict(namespace))
+                self.append_to_namespaces(asdict(namespace))
+
+            except Exception as e:
+                logger.error(f'{LOGGING_NAME} An error occured while registering namespace: {e}')
+                raise
+
+            logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
+            logger.info(f'{LOGGING_NAME} TOTAL_NAMESPACES: {len(self.namespaces)}, OVERALL_CALLABLE_TOOLS: {len(self.callable_tools)}')
+
             return obj
         
         return wrapper
