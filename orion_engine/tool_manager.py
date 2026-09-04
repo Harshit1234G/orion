@@ -56,7 +56,7 @@ class ToolManager:
         required = []
         sig = inspect.signature(method)
         for name, param in sig.parameters.items():
-            if param.default is not inspect.Parameter.empty:
+            if param.default is inspect.Parameter.empty:
                 required.append(name)
 
         return Parameters(
