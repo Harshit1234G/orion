@@ -1,5 +1,7 @@
 from . import llm_api as llm
 from . import memory_manager as memory
+from . import tool_manager as tm
+import skills
 import voice_engine as voice
 import prompts
 import utils
@@ -23,6 +25,7 @@ class OrionEngine:
         self.llm_client = llm.OpenAIClient()
         self.__init_tts()
         self.__init_stt()
+        self.__init_tools()
 
         utils.logger.info(f'{LOGGING_NAME} Initialized Successfully.')
 
@@ -50,3 +53,7 @@ class OrionEngine:
             vad= self.__vad,
             recognizer= self.__recognizer
         )
+
+    def __init_tools(self) -> None:
+        self.tool_manager = tm.ToolManager()
+        

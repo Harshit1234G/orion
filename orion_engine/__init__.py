@@ -5,8 +5,8 @@ from .llm_api import (
     Tool,
     OpenAIToolNamespaceSchema
 )
-from .engine import OrionEngine
 from .tool_manager import ToolManager
+from .engine import OrionEngine
 
 
 __all__ = [
