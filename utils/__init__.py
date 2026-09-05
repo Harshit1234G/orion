@@ -7,6 +7,7 @@ from .api_key_handler import (
     save_api_key_to_env,
     delete_api_key_keyring
 )
+from .exception_class import OrionEngineException
 
 __all__ = [
     'logger', 
