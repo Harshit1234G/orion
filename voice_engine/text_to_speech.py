@@ -9,7 +9,7 @@ from typing import Iterator
 from piper import PiperVoice
 import sounddevice as sd
 
-from utils import logger
+from utils import logger, OrionEngineException
 
 
 LOGGING_NAME = '[TTSManager]'
@@ -209,8 +209,7 @@ class TTSManager:
                 logger.debug(f'{LOGGING_NAME} Synthesis Completed.')
 
             except Exception as e:
-                logger.error(f'{LOGGING_NAME} Synthesis worker crashed: {e}')
-                raise
+                raise OrionEngineException(f'{LOGGING_NAME} Synthesis worker crashed: {e}')
 
     def __playback_loop(self):
         while True:
@@ -238,4 +237,4 @@ class TTSManager:
                 self.audio_player.play(chunk)
 
             except Exception as e:
-                logger.error(f'{LOGGING_NAME} Playback worker crashed: {e}')
+                raise OrionEngineException(f'{LOGGING_NAME} Playback worker crashed: {e}')

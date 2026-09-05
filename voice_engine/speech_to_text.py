@@ -10,7 +10,7 @@ from faster_whisper import WhisperModel
 import numpy as np
 import torch
 
-from utils import logger
+from utils import logger, OrionEngineException
 
 
 LOGGING_NAME = '[STTManager]'
@@ -225,8 +225,7 @@ class STTManager:
                 self.audio_queue.put(audio_chunk)
 
             except Exception as e:
-                logger.error(f'{LOGGING_NAME} Recorder worker crashed: {e}')
-                raise
+                raise OrionEngineException(f'{LOGGING_NAME} Recorder worker crashed: {e}')
 
     def __vad_loop(self) -> None:
         speech_buffer = []
@@ -270,8 +269,7 @@ class STTManager:
                         self.vad.reset()
 
             except Exception as e:
-                logger.error(f'{LOGGING_NAME} VAD worker crashed: {e}')
-                raise
+                raise OrionEngineException(f'{LOGGING_NAME} VAD worker crashed: {e}')
 
     def __recognize_loop(self) -> None:
         while True:
@@ -300,4 +298,4 @@ class STTManager:
                 self.transcript_queue.put(transcript)
 
             except Exception as e:
-                logger.error(f'{LOGGING_NAME} Recognize worker crashed: {e}')
+                raise OrionEngineException(f'{LOGGING_NAME} Recognize worker crashed: {e}')

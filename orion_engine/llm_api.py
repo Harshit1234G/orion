@@ -54,9 +54,7 @@ class OpenAIClient:
         )
 
         if api_key is None:
-            error = f'{LOGGING_NAME} OpenAIClient Crashed: No OpenAI Key found.'
-            logger.error(error)
-            raise RuntimeError(error)
+            raise RuntimeError(f'{LOGGING_NAME} OpenAIClient Crashed: No OpenAI Key found.')
         
         self.client = OpenAI(api_key= api_key)
         logger.info(f'{LOGGING_NAME} Initialized Successfully.')

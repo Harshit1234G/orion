@@ -4,7 +4,7 @@ from typing import Any, Callable
 from dataclasses import asdict
 
 from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
-from utils import logger
+from utils import logger, OrionEngineException
 
 
 LOGGING_NAME = '[ToolManager]'
@@ -80,9 +80,7 @@ class ToolManager:
         @wraps(cls)
         def wrapper(*args, **kwargs):
             if not inspect.isclass(cls):
-                error = f'{LOGGING_NAME} {cls} is not a class.'
-                logger.error(error)
-                raise ValueError(error)
+                raise TypeError(f'{LOGGING_NAME} {cls} is not a class.')
 
             try:
                 obj = cls(*args, **kwargs)
@@ -104,8 +102,7 @@ class ToolManager:
                 self.append_to_namespaces(asdict(namespace))
 
             except Exception as e:
-                logger.error(f'{LOGGING_NAME} An error occured while registering namespace: {e}')
-                raise
+                raise OrionEngineException(f'{LOGGING_NAME} An error occured while registering namespace: {e}')
 
             logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
             logger.info(f'{LOGGING_NAME} TOTAL_NAMESPACES: {len(self.namespaces)}, OVERALL_CALLABLE_TOOLS: {len(self.callable_tools)}')

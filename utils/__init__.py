@@ -16,5 +16,6 @@ __all__ = [
     'load_api_key_keyring',
     'save_api_key_keyring',
     'save_api_key_to_env',
-    'delete_api_key_keyring'
+    'delete_api_key_keyring',
+    'OrionEngineException'
 ]
