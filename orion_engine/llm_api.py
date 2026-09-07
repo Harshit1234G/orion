@@ -64,18 +64,13 @@ class OpenAIClient:
         *,
         model: OpenAIModels,
         input: str,
-        return_response_object: bool = True,
         **kwargs
     ):
         response = self.client.responses.create(
-            model= str(model),
+            model= model,
             input= input,
             **kwargs
         )
 
         logger.info(f'{LOGGING_NAME} Response Received Successfully.')
-
-        if return_response_object:
-            return response
-        
-        return response.output_text
+        return response

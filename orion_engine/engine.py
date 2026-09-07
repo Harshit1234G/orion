@@ -70,6 +70,4 @@ class OrionEngine:
         }
 
     def __init__skills(self, **kwargs) -> None:
-        objects = [
-            skills.FileSystem(**self.__get_skill_specific_kwargs('filesystem', kwargs))
-        ]
+        skills.FileSystem(**self.__get_skill_specific_kwargs('filesystem', kwargs))

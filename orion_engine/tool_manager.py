@@ -89,7 +89,7 @@ class ToolManager:
 
                 for method in public_methods:
                     callable_method = getattr(obj, method)
-                    self.add_to_callable_tools(method, callable_method)
+                    self.add_to_callable_tools(f'{namespace.name}.{method}', callable_method)
         
                     namespace.tools.append(
                         Tool(
