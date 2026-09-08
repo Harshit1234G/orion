@@ -6,6 +6,14 @@ from .llm_api import (
     OpenAIToolNamespaceSchema
 )
 from .tool_manager import ToolManager
+from .memory_manager import (
+    Memory,
+    ConversationMemory,
+    SessionMemory,
+    LongTermMemory,
+    EnvironmentMemory,
+    MemoryManager
+)
 from .engine import OrionEngine
 
 
@@ -16,5 +24,11 @@ __all__ = [
     'Parameters',
     'Tool',
     'OpenAIToolNamespaceSchema',
-    'ToolManager'
+    'ToolManager',
+    'Memory',
+    'ConversationMemory',
+    'SessionMemory',
+    'LongTermMemory',
+    'EnvironmentMemory',
+    'MemoryManager'
 ]

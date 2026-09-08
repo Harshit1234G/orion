@@ -3,7 +3,7 @@ from . import memory_manager as memory
 from . import tool_manager as tm
 import skills
 import voice_engine as voice
-# import prompts
+import prompts
 import utils
 
 

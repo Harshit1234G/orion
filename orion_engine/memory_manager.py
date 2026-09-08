@@ -48,3 +48,10 @@ class LongTermMemory(Memory):
 
 class EnvironmentMemory(Memory):
     ...
+
+
+# ------------------
+# Manager
+# ------------------
+class MemoryManager:
+    ...
