@@ -53,6 +53,10 @@ class ConversationMemory(Memory):
                 )
                 '''
             )
+
+    def delete_table() -> None:
+        with DatabaseConnector('memory.sqlite') as connector:
+            connector.execute('DROP TABLE IF EXISTS conversation_events')
         
 
 class SessionMemory(Memory):
@@ -80,6 +84,11 @@ class SessionMemory(Memory):
                 )
                 '''
             )
+
+    def delete_table() -> None:
+        with DatabaseConnector('memory.sqlite') as connector:
+            connector.execute('DROP TABLE IF EXISTS sessions')
+            connector.execute('DROP TABLE IF EXISTS session_memory')
 
 
 class LongTermMemory(Memory):
