@@ -1,10 +1,11 @@
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 
 class DatabaseConnector:
     def __init__(self, database: str) -> None:
-        self.database = database
+        self.database = Path('db') / database
         self.db = None
         self.cursor = None
 
