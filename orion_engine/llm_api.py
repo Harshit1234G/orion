@@ -1,5 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
+from typing import Any
 from openai import OpenAI
 
 from utils import logger, load_api_key_from_env, load_api_key_keyring
@@ -63,7 +64,7 @@ class OpenAIClient:
         self,
         *,
         model: OpenAIModels,
-        input: str,
+        input: Any,
         **kwargs
     ):
         response = self.client.responses.create(
