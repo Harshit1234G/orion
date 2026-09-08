@@ -83,12 +83,13 @@ class SessionMemory(Memory):
 
 
 class LongTermMemory(Memory):
-    ...
+    def __init__(self):
+        raise NotImplementedError()
 
 
 class EnvironmentMemory(Memory):
-    ...
-
+    def __init__(self):
+        raise NotImplementedError()
 
 # ------------------
 # Manager
