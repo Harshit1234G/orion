@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Literal, NoReturn, Optional
+from sqlite3 import Row
 from utils import DatabaseConnector, logger
 
 
@@ -27,7 +28,7 @@ class Memory(ABC):
         ...
 
     @abstractmethod
-    def retrieve(*args, **kwargs) -> list[dict]:
+    def retrieve(*args, **kwargs) -> Row:
         ...
 
     @abstractmethod
@@ -80,7 +81,7 @@ class ConversationMemory(Memory):
                 parameters= (session_id, role, content)
             )
 
-    def retrieve(self, last_n: int) -> list[dict]:
+    def retrieve(self, last_n: int) -> Row:
         with DatabaseConnector(self._db) as connector:
             rows = connector.fetch_all(
                 '''
@@ -92,7 +93,7 @@ class ConversationMemory(Memory):
                 parameters= (last_n,)
             )
 
-            return [dict(row) for row in rows[::-1]]
+            return rows[::-1]
             
 
     def delete(self, id_: int) -> None:
@@ -143,7 +144,7 @@ class SessionMemory(Memory):
     def save() -> None:
         ...
 
-    def retrieve() -> list[dict]:
+    def retrieve() -> Row:
         ...
 
     def delete() -> None:
