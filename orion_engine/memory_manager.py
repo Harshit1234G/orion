@@ -2,9 +2,11 @@ from abc import ABC, abstractmethod
 from typing import Literal, NoReturn, Optional
 from sqlite3 import Row
 from utils import DatabaseConnector, logger
+from .tool_manager import ToolManager
 
 
 LOGGING_NAME = '[MemoryManager]'
+tm = ToolManager()
 
 
 # ------------------
@@ -107,17 +109,24 @@ class ConversationMemory(Memory):
         raise NotImplementedError(f'{LOGGING_NAME} ConversationMemory doesn\'t require updation, so `update` method is not implemented.')
         
 
+@tm.tool
 class SessionMemory:
+    """
+    Manages the current session's memory by updating, retrieving, and deleting it. The memory contains a summary of what happened throughout the session, not the actual conversation.
+    """
     def __init__(self):
         self.memory = ''
 
     def retrieve(self) -> str:
+        """Retrieves the summary of the current session."""
         return self.memory
 
     def delete(self) -> None:
+        """Deletes the current session's memory."""
         self.memory = ''
 
     def update(self, new_memory: str) -> None:
+        """Replaces the current session's memory with the provided summary."""
         self.memory = new_memory
 
 
