@@ -10,6 +10,10 @@ LOGGING_NAME = '[MemoryManager]'
 # Abstract class
 # ------------------
 class Memory(ABC):
+    def __init__(self):
+        super().__init__()
+        self.db = 'memory.sqlite'
+
     @abstractmethod
     def create_table() -> None:
         ...
@@ -38,11 +42,11 @@ class ConversationMemory(Memory):
     def __init__(self):
         super().__init__()
 
-    def create_table() -> None:
-        with DatabaseConnector('memory.sqlite') as connector:
+    def create_table(self) -> None:
+        with DatabaseConnector(self.db) as connector:
             connector.execute(
                 '''
-                CREATE TABLE conversation_events(
+                CREATE TABLE IF NOT EXISTS conversation_events(
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id TEXT NOT NULL,
                     type TEXT NOT NULL,
@@ -54,20 +58,29 @@ class ConversationMemory(Memory):
                 '''
             )
 
-    def delete_table() -> None:
-        with DatabaseConnector('memory.sqlite') as connector:
+    def delete_table(self) -> None:
+        with DatabaseConnector(self.db) as connector:
             connector.execute('DROP TABLE IF EXISTS conversation_events')
+
+    def save(self) -> None:
+        ...
+
+    def retrieve(self) -> Any:
+        ...
+
+    def delete(self) -> None:
+        ...
         
 
 class SessionMemory(Memory):
     def __init__(self):
         super().__init__()
     
-    def create_table() -> None:
-        with DatabaseConnector('memory.sqlite') as connector:
+    def create_table(self) -> None:
+        with DatabaseConnector(self.db) as connector:
             connector.execute(
                 '''
-                CREATE TABLE sessions(
+                CREATE TABLE IF NOT EXISTS sessions(
                     id TEXT PRIMARY KEY,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -76,7 +89,7 @@ class SessionMemory(Memory):
             )
             connector.execute(
                 '''
-                CREATE TABLE session_memory(
+                CREATE TABLE IF NOT EXISTS session_memory(
                     session_id TEXT PRIMARY KEY,
                     memory TEXT NOT NULL,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -85,10 +98,19 @@ class SessionMemory(Memory):
                 '''
             )
 
-    def delete_table() -> None:
-        with DatabaseConnector('memory.sqlite') as connector:
+    def delete_table(self) -> None:
+        with DatabaseConnector(self.db) as connector:
             connector.execute('DROP TABLE IF EXISTS sessions')
             connector.execute('DROP TABLE IF EXISTS session_memory')
+
+    def save() -> None:
+        ...
+
+    def retrieve() -> Any:
+        ...
+
+    def delete() -> None:
+        ...
 
 
 class LongTermMemory(Memory):
