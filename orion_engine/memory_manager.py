@@ -62,9 +62,13 @@ class ConversationMemory(Memory):
                 '''
             )
 
+        logger.info(f'{LOGGING_NAME} Created `conversation_events` table.')
+
     def delete_table(self) -> None:
         with DatabaseConnector(self._db) as connector:
             connector.execute('DROP TABLE IF EXISTS conversation_events')
+
+        logger.info(f'{LOGGING_NAME} Deleted `conversation_events` table.')
 
     def save(
         self,
@@ -80,6 +84,8 @@ class ConversationMemory(Memory):
                 parameters= (role, content)
             )
 
+        logger.info(f'{LOGGING_NAME} Saved conversation to `conversation_events` table.')
+
     def retrieve(self, last_n: int) -> Row:
         with DatabaseConnector(self._db) as connector:
             rows = connector.fetch_all(
@@ -92,6 +98,7 @@ class ConversationMemory(Memory):
                 parameters= (last_n,)
             )
 
+            logger.info(f'{LOGGING_NAME} Retrieved {last_n} rows from `conversation_events` table.')
             return rows[::-1]
             
 
@@ -104,6 +111,8 @@ class ConversationMemory(Memory):
                 ''',
                 parameters= (id_,)
             )
+
+        logger.info(f'{LOGGING_NAME} Deleted row with id {id_} from `conversation_events` table.')
 
     def update(self) -> NoReturn:
         raise NotImplementedError(f'{LOGGING_NAME} ConversationMemory doesn\'t require updation, so `update` method is not implemented.')
@@ -119,10 +128,12 @@ class SessionMemory:
 
     def retrieve(self) -> str:
         """Retrieves the summary of the current session."""
+        logger.info(f'{LOGGING_NAME} Asked for session memory.')
         return self.memory
 
     def update(self, new_memory: str) -> None:
         """Replaces the current session's memory with the provided summary."""
+        logger.info(f'{LOGGING_NAME} Session Memory updated successfully.')
         self.memory = new_memory
 
 
