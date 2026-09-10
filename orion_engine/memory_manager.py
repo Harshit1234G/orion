@@ -112,7 +112,7 @@ class ConversationMemory(Memory):
 @tm.tool
 class SessionMemory:
     """
-    Manages the current session's memory by updating, retrieving, and deleting it. The memory contains a summary of what happened throughout the session, not the actual conversation.
+    Manages the current session's memory by updating and retrieving it. The memory contains a summary of what happened throughout the session, not the actual conversation.
     """
     def __init__(self):
         self.memory = ''
@@ -120,10 +120,6 @@ class SessionMemory:
     def retrieve(self) -> str:
         """Retrieves the summary of the current session."""
         return self.memory
-
-    def delete(self) -> None:
-        """Deletes the current session's memory."""
-        self.memory = ''
 
     def update(self, new_memory: str) -> None:
         """Replaces the current session's memory with the provided summary."""
