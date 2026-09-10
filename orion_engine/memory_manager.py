@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Literal, NoReturn, Optional
 from utils import DatabaseConnector, logger
 
 
@@ -27,11 +27,15 @@ class Memory(ABC):
         ...
 
     @abstractmethod
-    def retrieve(*args, **kwargs) -> Any:
+    def retrieve(*args, **kwargs) -> list[dict]:
         ...
 
     @abstractmethod
     def delete(*args, **kwargs) -> None:
+        ...
+
+    @abstractmethod
+    def update(*args, **kwargs) -> Optional[NoReturn]:
         ...
 
 
@@ -49,8 +53,7 @@ class ConversationMemory(Memory):
                 CREATE TABLE IF NOT EXISTS conversation_events(
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id TEXT NOT NULL,
-                    type TEXT NOT NULL,
-                    role TEXT,
+                    role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (session_id) REFERENCES sessions(id)
@@ -62,13 +65,40 @@ class ConversationMemory(Memory):
         with DatabaseConnector(self.db) as connector:
             connector.execute('DROP TABLE IF EXISTS conversation_events')
 
-    def save(self) -> None:
-        ...
+    def save(
+        self,
+        session_id: str,
+        role: Literal['user', 'assistant', 'tool'],
+        content: str
+    ) -> None:
+        with DatabaseConnector(self.db) as connector:
+            connector.execute(
+                '''
+                INSERT INTO conversation_events (session_id, role, content)
+                VALUES (?, ?, ?)
+                ''',
+                parameters= (session_id, role, content)
+            )
 
-    def retrieve(self) -> Any:
-        ...
+    def retrieve(self, last_n: int) -> list[dict]:
+        with DatabaseConnector(self.db) as connector:
+            rows = connector.fetch_all(
+                '''
+                SELECT *
+                FROM conversation_events
+                ORDER BY id DESC
+                LIMIT ?
+                ''',
+                parameters= (last_n,)
+            )
+
+            return [dict(row) for row in rows[::-1]]
+            
 
     def delete(self) -> None:
+        ...
+
+    def update(self) -> NoReturn:
         ...
         
 
@@ -106,10 +136,13 @@ class SessionMemory(Memory):
     def save() -> None:
         ...
 
-    def retrieve() -> Any:
+    def retrieve() -> list[dict]:
         ...
 
     def delete() -> None:
+        ...
+
+    def update(self) -> None:
         ...
 
 

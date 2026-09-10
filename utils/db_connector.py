@@ -5,12 +5,16 @@ from typing import Any
 
 class DatabaseConnector:
     def __init__(self, database: str) -> None:
-        self.database = Path('db') / database
+        db_dir = Path('db')
+        Path.mkdir(db_dir, exist_ok= True)
+        self.database = db_dir / database
+        
         self.db = None
         self.cursor = None
 
     def __enter__(self):
         self.db = sqlite3.connect(self.database)
+        self.db.row_factory = sqlite3.Row
         self.cursor = self.db.cursor()
         return self
 
