@@ -2,7 +2,7 @@ from memory_manager_queries import *
 
 __all__ = [
     'CONVERSATION_MEMORY_CREATE_TABLE',
-    'DROP_CONVERSATION_EVENTS',
+    'DROP_TABLE',
     'SAVE_CONVERSATION',
     'RETRIEVE_CONVERSATION',
     'DELETE_CONVERSATION',

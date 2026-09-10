@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS conversation_events(
 )
 '''
 
-DROP_CONVERSATION_EVENTS = 'DROP TABLE IF EXISTS conversation_events'
+DROP_TABLE = 'DROP TABLE IF EXISTS ?'
 
 SAVE_CONVERSATION = '''
 INSERT INTO conversation_events (role, content)

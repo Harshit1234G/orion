@@ -59,7 +59,10 @@ class ConversationMemory(Memory):
 
     def delete_table(self) -> None:
         with DatabaseConnector(self._db) as connector:
-            connector.execute(queries.DROP_CONVERSATION_EVENTS)
+            connector.execute(
+                queries.DROP_TABLE,
+                parameters= ('conversation_events',)
+            )
 
         logger.info(f'{LOGGING_NAME} Deleted `conversation_events` table.')
 
@@ -127,8 +130,16 @@ class LongTermMemory(Memory):
         with DatabaseConnector(self._db) as connector:
             connector.execute(queries.LONG_TERM_MEMORY_CREATE_TABLE)
 
+        logger.info(f'{LOGGING_NAME} Created `long_term_memory` table.')
+
     def delete_table(self) -> None:
-        ...
+        with DatabaseConnector(self._db) as connector:
+            connector.execute(
+                queries.DROP_TABLE,
+                parameters= ('long_term_memory',)
+            )
+
+        logger.info(f'{LOGGING_NAME} Deleted `long_term_memory` table.')
 
     def save(self) -> None:
         ...
