@@ -53,11 +53,9 @@ class ConversationMemory(Memory):
                 '''
                 CREATE TABLE IF NOT EXISTS conversation_events(
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL,
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (session_id) REFERENCES sessions(id)
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
                 '''
             )
@@ -68,17 +66,16 @@ class ConversationMemory(Memory):
 
     def save(
         self,
-        session_id: str,
         role: Literal['user', 'assistant', 'tool'],
         content: str
     ) -> None:
         with DatabaseConnector(self._db) as connector:
             connector.execute(
                 '''
-                INSERT INTO conversation_events (session_id, role, content)
-                VALUES (?, ?, ?)
+                INSERT INTO conversation_events (role, content)
+                VALUES (?, ?)
                 ''',
-                parameters= (session_id, role, content)
+                parameters= (role, content)
             )
 
     def retrieve(self, last_n: int) -> Row:
@@ -110,48 +107,18 @@ class ConversationMemory(Memory):
         raise NotImplementedError(f'{LOGGING_NAME} ConversationMemory doesn\'t require updation, so `update` method is not implemented.')
         
 
-class SessionMemory(Memory):
+class SessionMemory:
     def __init__(self):
-        super().__init__()
-    
-    def create_table(self) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(
-                '''
-                CREATE TABLE IF NOT EXISTS sessions(
-                    id TEXT PRIMARY KEY,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-                '''
-            )
-            connector.execute(
-                '''
-                CREATE TABLE IF NOT EXISTS session_memory(
-                    session_id TEXT PRIMARY KEY,
-                    memory TEXT NOT NULL,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (session_id) REFERENCES sessions(id)
-                )
-                '''
-            )
+        self.memory = ''
 
-    def delete_table(self) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute('DROP TABLE IF EXISTS sessions')
-            connector.execute('DROP TABLE IF EXISTS session_memory')
+    def retrieve(self) -> str:
+        return self.memory
 
-    def save() -> None:
-        ...
+    def delete(self) -> None:
+        self.memory = ''
 
-    def retrieve() -> Row:
-        ...
-
-    def delete() -> None:
-        ...
-
-    def update(self) -> None:
-        ...
+    def update(self, new_memory: str) -> None:
+        self.memory = new_memory
 
 
 class LongTermMemory(Memory):
