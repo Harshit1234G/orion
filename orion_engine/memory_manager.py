@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Literal, NoReturn, Optional
 from sqlite3 import Row
+
 from utils import DatabaseConnector, logger
+import db_queries as queries
 from .tool_manager import ToolManager
 
 
@@ -51,22 +53,13 @@ class ConversationMemory(Memory):
 
     def create_table(self) -> None:
         with DatabaseConnector(self._db) as connector:
-            connector.execute(
-                '''
-                CREATE TABLE IF NOT EXISTS conversation_events(
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-                '''
-            )
+            connector.execute(queries.CONVERSATION_MEMORY_CREATE_TABLE)
 
         logger.info(f'{LOGGING_NAME} Created `conversation_events` table.')
 
     def delete_table(self) -> None:
         with DatabaseConnector(self._db) as connector:
-            connector.execute('DROP TABLE IF EXISTS conversation_events')
+            connector.execute(queries.DROP_CONVERSATION_EVENTS)
 
         logger.info(f'{LOGGING_NAME} Deleted `conversation_events` table.')
 
@@ -77,10 +70,7 @@ class ConversationMemory(Memory):
     ) -> None:
         with DatabaseConnector(self._db) as connector:
             connector.execute(
-                '''
-                INSERT INTO conversation_events (role, content)
-                VALUES (?, ?)
-                ''',
+                queries.SAVE_CONVERSATION,
                 parameters= (role, content)
             )
 
@@ -89,26 +79,18 @@ class ConversationMemory(Memory):
     def retrieve(self, last_n: int) -> Row:
         with DatabaseConnector(self._db) as connector:
             rows = connector.fetch_all(
-                '''
-                SELECT *
-                FROM conversation_events
-                ORDER BY id DESC
-                LIMIT ?
-                ''',
+               queries.RETRIEVE_CONVERSATION,
                 parameters= (last_n,)
             )
 
-            logger.info(f'{LOGGING_NAME} Retrieved {last_n} rows from `conversation_events` table.')
-            return rows[::-1]
+        logger.info(f'{LOGGING_NAME} Retrieved {last_n} rows from `conversation_events` table.')
+        return rows[::-1]
             
 
     def delete(self, id_: int) -> None:
         with DatabaseConnector(self._db) as connector:
             connector.execute(
-                '''
-                DELETE FROM conversation_events
-                WHERE id = ?
-                ''',
+                queries.DELETE_CONVERSATION,
                 parameters= (id_,)
             )
 
@@ -139,7 +121,26 @@ class SessionMemory:
 
 class LongTermMemory(Memory):
     def __init__(self):
-        raise NotImplementedError()
+        super().__init__()
+
+    def create_table(self) -> None:
+        with DatabaseConnector(self._db) as connector:
+            connector.execute(queries.LONG_TERM_MEMORY_CREATE_TABLE)
+
+    def delete_table(self) -> None:
+        ...
+
+    def save(self) -> None:
+        ...
+
+    def retrieve(self) -> Row:
+        ...
+
+    def delete(self) -> None:
+        ...
+
+    def update(self) -> None:
+        ...
 
 
 class EnvironmentMemory(Memory):
