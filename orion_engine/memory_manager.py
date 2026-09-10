@@ -12,7 +12,7 @@ LOGGING_NAME = '[MemoryManager]'
 class Memory(ABC):
     def __init__(self):
         super().__init__()
-        self.db = 'memory.sqlite'
+        self._db = 'memory.sqlite'
 
     @abstractmethod
     def create_table() -> None:
@@ -47,7 +47,7 @@ class ConversationMemory(Memory):
         super().__init__()
 
     def create_table(self) -> None:
-        with DatabaseConnector(self.db) as connector:
+        with DatabaseConnector(self._db) as connector:
             connector.execute(
                 '''
                 CREATE TABLE IF NOT EXISTS conversation_events(
@@ -62,7 +62,7 @@ class ConversationMemory(Memory):
             )
 
     def delete_table(self) -> None:
-        with DatabaseConnector(self.db) as connector:
+        with DatabaseConnector(self._db) as connector:
             connector.execute('DROP TABLE IF EXISTS conversation_events')
 
     def save(
@@ -71,7 +71,7 @@ class ConversationMemory(Memory):
         role: Literal['user', 'assistant', 'tool'],
         content: str
     ) -> None:
-        with DatabaseConnector(self.db) as connector:
+        with DatabaseConnector(self._db) as connector:
             connector.execute(
                 '''
                 INSERT INTO conversation_events (session_id, role, content)
@@ -81,7 +81,7 @@ class ConversationMemory(Memory):
             )
 
     def retrieve(self, last_n: int) -> list[dict]:
-        with DatabaseConnector(self.db) as connector:
+        with DatabaseConnector(self._db) as connector:
             rows = connector.fetch_all(
                 '''
                 SELECT *
@@ -95,11 +95,18 @@ class ConversationMemory(Memory):
             return [dict(row) for row in rows[::-1]]
             
 
-    def delete(self) -> None:
-        ...
+    def delete(self, id_: int) -> None:
+        with DatabaseConnector(self._db) as connector:
+            connector.execute(
+                '''
+                DELETE FROM conversation_events
+                WHERE id = ?
+                ''',
+                parameters= (id_,)
+            )
 
     def update(self) -> NoReturn:
-        ...
+        raise NotImplementedError(f'{LOGGING_NAME} ConversationMemory doesn\'t require updation, so `update` method is not implemented.')
         
 
 class SessionMemory(Memory):
@@ -107,7 +114,7 @@ class SessionMemory(Memory):
         super().__init__()
     
     def create_table(self) -> None:
-        with DatabaseConnector(self.db) as connector:
+        with DatabaseConnector(self._db) as connector:
             connector.execute(
                 '''
                 CREATE TABLE IF NOT EXISTS sessions(
@@ -129,7 +136,7 @@ class SessionMemory(Memory):
             )
 
     def delete_table(self) -> None:
-        with DatabaseConnector(self.db) as connector:
+        with DatabaseConnector(self._db) as connector:
             connector.execute('DROP TABLE IF EXISTS sessions')
             connector.execute('DROP TABLE IF EXISTS session_memory')
 
