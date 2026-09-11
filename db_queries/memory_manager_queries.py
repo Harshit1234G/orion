@@ -63,3 +63,8 @@ SELECT *
 FROM long_term_memory
 WHERE key = ?
 '''
+
+DELETE_LONG_TERM_MEMORY = '''
+DELETE FROM long_term_memory
+WHERE key = ?
+'''

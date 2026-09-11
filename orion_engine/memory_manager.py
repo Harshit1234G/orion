@@ -150,46 +150,48 @@ class LongTermMemory(Memory):
         expires_at: str,
         importance: int = 5
     ) -> None:
+        expires_at = dateutil.parser.parse(expires_at) if expires_at != 'never' else expires_at
+        
         with DatabaseConnector(self._db) as connector:
             connector.execute(
                 queries.SAVE_LONG_TERM_MEMORY,
-                parameters= (
-                    key, 
-                    content, 
-                    category, 
-                    importance, 
-                    dateutil.parser.parse(expires_at)
-                )
+                parameters= (key, content, category, importance, expires_at)
             )
 
         logger.info(f'{LOGGING_NAME} Saved long term memory to `long_term_memory` table.')
 
+    def __retrieve_from_id(self, id: int) -> Row:
+        with DatabaseConnector(self._db) as connector:
+            return connector.fetch_one(
+                queries.RETRIEVE_FROM_ID,
+                parameters= (id,)
+            )
+
+    def __retrieve_from_key(self, key: str) -> Row:
+        with DatabaseConnector(self._db) as connector:
+            return connector.fetch_one(
+                queries.RETRIEVE_FROM_KEY,
+                parameters= (key,)
+            )
+
     def retrieve(
         self,
         *,
-        from_id: int | None = None,
-        from_key: str | None = None,
-        grouped_by_category: str | None = None,
-        with_higher_importance_than: int | None = None,
-        with_lower_importance_than: int | None = None,
-        is_active: bool | None = None 
+        from_id: Optional[int] = None,
+        from_key: Optional[str] = None,
+        grouped_by_category: Optional[str] = None,
+        with_higher_importance_than: Optional[int] = None,
+        with_lower_importance_than: Optional[int] = None,
+        is_active: Optional[bool] = True 
     ) -> Row:
-        with DatabaseConnector(self._db) as connector:
-
             # if from_id or from_key is provided than all other args will be ignored
             if from_id is not None:
                 logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
-                return connector.fetch_one(
-                    queries.RETRIEVE_FROM_ID,
-                    parameters= (from_id,)
-                )
+                return self.__retrieve_from_id(from_id)
 
             if from_key is not None:
                 logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
-                return connector.fetch_one(
-                    queries.RETRIEVE_FROM_KEY,
-                    parameters= (from_key,)
-                )
+                return self.__retrieve_from_key(from_key)
 
             # building dynamic conditions
             conditions = []
@@ -216,14 +218,36 @@ class LongTermMemory(Memory):
             if conditions:
                 query += ' WHERE ' + ' AND '.join(conditions)
 
-            logger.info(f'{LOGGING_NAME} Retrieving long term memory based on conditions.')
-            return connector.fetch_all(query, parameters)
+            logger.info(f'{LOGGING_NAME} Retrieving long term memory based on {len(conditions)} conditions.')
+
+            with DatabaseConnector(self._db) as connector:
+                return connector.fetch_all(query, parameters)
 
 
-    def delete(self) -> None:
-        ...
+    def delete(
+        self, 
+        key: str,
+        *, 
+        permanently: bool = False
+    ) -> None:
+        if permanently:
+            with DatabaseConnector(self._db) as connector:
+                connector.execute(
+                    queries.DELETE_LONG_TERM_MEMORY,
+                    parameters= (key,)
+                )
 
-    def update(self) -> None:
+                logger.info(f'{LOGGING_NAME} Permanently deleted long term memory with {key = }')
+                return
+
+        self.update()
+
+
+    def update(
+        self,
+        content: Optional[str] = None,
+
+    ) -> None:
         ...
 
 
