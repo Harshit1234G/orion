@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Literal, NoReturn, Optional
+from datetime import datetime
 from sqlite3 import Row
 
 from utils import DatabaseConnector, logger
@@ -141,11 +142,76 @@ class LongTermMemory(Memory):
 
         logger.info(f'{LOGGING_NAME} Deleted `long_term_memory` table.')
 
-    def save(self) -> None:
-        ...
+    def save(
+        self,
+        key: str,
+        content: str,
+        category: str,
+        expires_at: datetime,
+        importance: int = 5
+    ) -> None:
+        with DatabaseConnector(self._db) as connector:
+            connector.execute(
+                queries.SAVE_LONG_TERM_MEMORY,
+                parameters= (key, content, category, importance, expires_at)
+            )
 
-    def retrieve(self) -> Row:
-        ...
+        logger.info(f'{LOGGING_NAME} Saved long term memory to `long_term_memory` table.')
+
+    def retrieve(
+        self,
+        *,
+        from_id: int | None = None,
+        from_key: str | None = None,
+        grouped_by_category: str | None = None,
+        with_higher_importance_than: int | None = None,
+        with_lower_importance_than: int | None = None,
+        is_active: bool | None = None 
+    ) -> Row:
+        with DatabaseConnector(self._db) as connector:
+
+            # if from_id or from_key is provided than all other args will be ignored
+            if from_id is not None:
+                logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
+                return connector.fetch_one(
+                    queries.RETRIEVE_FROM_ID,
+                    parameters= (from_id,)
+                )
+
+            if from_id is not None:
+                logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
+                return connector.fetch_one(
+                    queries.RETRIEVE_FROM_KEY,
+                    parameters= (from_key,)
+                )
+
+            # building dynamic conditions
+            conditions = []
+            parameters = []
+
+            if grouped_by_category is not None:
+                conditions.append('category = ?')
+                parameters.append(grouped_by_category)
+
+            if with_higher_importance_than is not None:
+                conditions.append('importance > ?')
+                parameters.append(with_higher_importance_than)
+
+            if with_lower_importance_than is not None:
+                conditions.append('importance < ?')
+                parameters.append(with_lower_importance_than)
+
+            if is_active is not None:
+                conditions.append('is_active = ?')
+                parameters.append(int(is_active))
+
+            query = 'SELECT * FROM long_term_memory'
+
+            if conditions:
+                query += ' WHERE ' + ' AND '.join(conditions)
+
+            return connector.fetch_all(query, parameters)
+
 
     def delete(self) -> None:
         ...

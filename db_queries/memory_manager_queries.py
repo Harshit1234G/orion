@@ -41,8 +41,25 @@ CREATE TABLE long_term_memory (
     importance INTEGER DEFAULT 5,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_accessed_at DATETIME,
+    last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     expires_at DATETIME
-    is_active INTEGER DEFAULT 1
+    is_active BOOLEAN DEFAULT 1
 )
+'''
+
+SAVE_LONG_TERM_MEMORY = '''
+INSERT INTO long_term_memory (key, content, category, importance, expires_at)
+VALUES (?, ?, ?, ?, ?)
+'''
+
+RETRIEVE_FROM_ID = '''
+SELECT *
+FROM long_term_memory
+WHERE id = ?
+'''
+
+RETRIEVE_FROM_KEY = '''
+SELECT *
+FROM long_term_memory
+WHERE key = ?
 '''
