@@ -33,16 +33,16 @@ WHERE id = ?
 # Long term memory
 # ------------------------------
 LONG_TERM_MEMORY_CREATE_TABLE = '''
-CREATE TABLE long_term_memory (
+CREATE TABLE IF NOT EXISTS long_term_memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT UNIQUE,
     content TEXT NOT NULL,
-    category TEXT
+    category TEXT,
     importance INTEGER DEFAULT 5,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME
+    expires_at DATETIME,
     is_active BOOLEAN DEFAULT 1
 )
 '''

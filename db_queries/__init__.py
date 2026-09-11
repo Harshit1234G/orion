@@ -1,4 +1,4 @@
-from memory_manager_queries import *
+from .memory_manager_queries import *
 
 __all__ = [
     'CONVERSATION_MEMORY_CREATE_TABLE',

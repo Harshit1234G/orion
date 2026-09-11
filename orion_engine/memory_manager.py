@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Literal, NoReturn, Optional
-from datetime import datetime
+import dateutil
 from sqlite3 import Row
 
 from utils import DatabaseConnector, logger
@@ -147,13 +147,19 @@ class LongTermMemory(Memory):
         key: str,
         content: str,
         category: str,
-        expires_at: datetime,
+        expires_at: str,
         importance: int = 5
     ) -> None:
         with DatabaseConnector(self._db) as connector:
             connector.execute(
                 queries.SAVE_LONG_TERM_MEMORY,
-                parameters= (key, content, category, importance, expires_at)
+                parameters= (
+                    key, 
+                    content, 
+                    category, 
+                    importance, 
+                    dateutil.parser.parse(expires_at)
+                )
             )
 
         logger.info(f'{LOGGING_NAME} Saved long term memory to `long_term_memory` table.')
@@ -178,7 +184,7 @@ class LongTermMemory(Memory):
                     parameters= (from_id,)
                 )
 
-            if from_id is not None:
+            if from_key is not None:
                 logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
                 return connector.fetch_one(
                     queries.RETRIEVE_FROM_KEY,
@@ -210,6 +216,7 @@ class LongTermMemory(Memory):
             if conditions:
                 query += ' WHERE ' + ' AND '.join(conditions)
 
+            logger.info(f'{LOGGING_NAME} Retrieving long term memory based on conditions.')
             return connector.fetch_all(query, parameters)
 
 
