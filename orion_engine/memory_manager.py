@@ -157,6 +157,9 @@ class LongTermMemory(Memory):
 
         logger.info(f'{LOGGING_NAME} Saved long term memory to `long_term_memory` table.')
 
+    def get_all_keys(self) -> list:
+        return self.connector.fetch_all(queries.GET_ALL_KEYS)
+
     def retrieve(
         self,
         *,

@@ -68,3 +68,8 @@ DELETE_LONG_TERM_MEMORY = '''
 DELETE FROM long_term_memory
 WHERE key = ?
 '''
+
+GET_ALL_KEYS = '''
+SELECT key
+FROM long_term_memory
+'''
