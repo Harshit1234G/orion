@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Literal, NoReturn, Optional
+from typing import Literal, NoReturn, Optional, Sequence
 import dateutil
 from sqlite3 import Row
 
@@ -16,10 +16,6 @@ tm = ToolManager()
 # Abstract class
 # ------------------
 class Memory(ABC):
-    def __init__(self):
-        super().__init__()
-        self._db = 'memory.sqlite'
-
     @abstractmethod
     def create_table() -> None:
         ...
@@ -49,18 +45,19 @@ class Memory(ABC):
 # Main memory classes
 # ----------------------
 class ConversationMemory(Memory):
-    def __init__(self):
+    def __init__(self, connector: DatabaseConnector) -> None:
         super().__init__()
+        self.connector = connector
 
     def create_table(self) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(queries.CONVERSATION_MEMORY_CREATE_TABLE)
+        with self.connector.transaction():
+            self.connector.execute(queries.CONVERSATION_MEMORY_CREATE_TABLE)
 
         logger.info(f'{LOGGING_NAME} Created `conversation_events` table.')
 
     def delete_table(self) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(
+        with self.connector.transaction():
+            self.connector.execute(
                 queries.DROP_TABLE,
                 parameters= ('conversation_events',)
             )
@@ -69,11 +66,11 @@ class ConversationMemory(Memory):
 
     def save(
         self,
-        role: Literal['user', 'assistant', 'tool'],
-        content: str
+        role: Sequence[Literal['user', 'assistant', 'tool']],
+        content: Sequence[str]
     ) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(
+        with self.connector.transaction():
+            self.connector.execute_many(
                 queries.SAVE_CONVERSATION,
                 parameters= (role, content)
             )
@@ -81,19 +78,18 @@ class ConversationMemory(Memory):
         logger.info(f'{LOGGING_NAME} Saved conversation to `conversation_events` table.')
 
     def retrieve(self, last_n: int) -> Row:
-        with DatabaseConnector(self._db) as connector:
-            rows = connector.fetch_all(
-               queries.RETRIEVE_CONVERSATION,
-                parameters= (last_n,)
-            )
+        rows = self.connector.fetch_all(
+            queries.RETRIEVE_CONVERSATION,
+            parameters= (last_n,)
+        )
 
         logger.info(f'{LOGGING_NAME} Retrieved {last_n} rows from `conversation_events` table.')
         return rows[::-1]
             
 
     def delete(self, id_: int) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(
+        with self.connector.transaction():
+            self.connector.execute(
                 queries.DELETE_CONVERSATION,
                 parameters= (id_,)
             )
@@ -117,25 +113,26 @@ class SessionMemory:
         logger.info(f'{LOGGING_NAME} Asked for session memory.')
         return self.memory
 
-    def update(self, new_memory: str) -> None:
+    def update(self, summary: str) -> None:
         """Replaces the current session's memory with the provided summary."""
         logger.info(f'{LOGGING_NAME} Session Memory updated successfully.')
-        self.memory = new_memory
+        self.memory = summary
 
 
 class LongTermMemory(Memory):
-    def __init__(self):
+    def __init__(self, connector: DatabaseConnector) -> None:
         super().__init__()
+        self.connector = connector
 
     def create_table(self) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(queries.LONG_TERM_MEMORY_CREATE_TABLE)
+        with self.connector.transaction():
+            self.connector.execute(queries.LONG_TERM_MEMORY_CREATE_TABLE)
 
         logger.info(f'{LOGGING_NAME} Created `long_term_memory` table.')
 
     def delete_table(self) -> None:
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(
+        with self.connector.transaction():
+            self.connector.execute(
                 queries.DROP_TABLE,
                 parameters= ('long_term_memory',)
             )
@@ -152,27 +149,13 @@ class LongTermMemory(Memory):
     ) -> None:
         expires_at = dateutil.parser.parse(expires_at) if expires_at != 'never' else expires_at
         
-        with DatabaseConnector(self._db) as connector:
-            connector.execute(
+        with self.connector.transaction():
+            self.connector.execute(
                 queries.SAVE_LONG_TERM_MEMORY,
                 parameters= (key, content, category, importance, expires_at)
             )
 
         logger.info(f'{LOGGING_NAME} Saved long term memory to `long_term_memory` table.')
-
-    def __retrieve_from_id(self, id: int) -> Row:
-        with DatabaseConnector(self._db) as connector:
-            return connector.fetch_one(
-                queries.RETRIEVE_FROM_ID,
-                parameters= (id,)
-            )
-
-    def __retrieve_from_key(self, key: str) -> Row:
-        with DatabaseConnector(self._db) as connector:
-            return connector.fetch_one(
-                queries.RETRIEVE_FROM_KEY,
-                parameters= (key,)
-            )
 
     def retrieve(
         self,
@@ -187,11 +170,17 @@ class LongTermMemory(Memory):
             # if from_id or from_key is provided than all other args will be ignored
             if from_id is not None:
                 logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
-                return self.__retrieve_from_id(from_id)
+                return self.connector.fetch_one(
+                    queries.RETRIEVE_FROM_ID,
+                    parameters= (from_id,)
+                )
 
             if from_key is not None:
                 logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
-                return self.__retrieve_from_key(from_key)
+                return self.connector.fetch_one(
+                    queries.RETRIEVE_FROM_KEY,
+                    parameters= (from_key,)
+                )
 
             # building dynamic conditions
             conditions = []
@@ -219,10 +208,7 @@ class LongTermMemory(Memory):
                 query += ' WHERE ' + ' AND '.join(conditions)
 
             logger.info(f'{LOGGING_NAME} Retrieving long term memory based on {len(conditions)} conditions.')
-
-            with DatabaseConnector(self._db) as connector:
-                return connector.fetch_all(query, parameters)
-
+            return self.connector.fetch_all(query, parameters)
 
     def delete(
         self, 
@@ -231,8 +217,8 @@ class LongTermMemory(Memory):
         permanently: bool = False
     ) -> None:
         if permanently:
-            with DatabaseConnector(self._db) as connector:
-                connector.execute(
+            with self.connector.transaction():
+                self.connector.execute(
                     queries.DELETE_LONG_TERM_MEMORY,
                     parameters= (key,)
                 )
@@ -241,7 +227,6 @@ class LongTermMemory(Memory):
                 return
 
         self.update()
-
 
     def update(
         self,
