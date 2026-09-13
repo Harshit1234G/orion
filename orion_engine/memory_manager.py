@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Literal, NoReturn, Optional, Sequence
+from typing import NoReturn, Optional
 import dateutil
 from sqlite3 import Row
 
@@ -48,6 +48,7 @@ class ConversationMemory(Memory):
     def __init__(self, connector: DatabaseConnector) -> None:
         super().__init__()
         self.connector = connector
+        self.prev_convo_length = 0
 
     def create_table(self) -> None:
         with self.connector.transaction():
@@ -66,18 +67,21 @@ class ConversationMemory(Memory):
 
     def save(
         self,
-        roles: Sequence[Literal['user', 'assistant', 'tool']],
-        contents: Sequence[str]
+        conversation: tuple[str, str]     # like zip(roles, contents)
     ) -> None:
         with self.connector.transaction():
             self.connector.execute_many(
                 queries.SAVE_CONVERSATION,
-                parameters= zip(roles, contents)
+                parameters= conversation
             )
 
+        self.prev_convo_length = len(conversation)
         logger.info(f'{LOGGING_NAME} Saved conversation to `conversation_events` table.')
 
-    def retrieve(self, last_n: int) -> Row:
+    def retrieve_previous_conversation(self) -> list[Row]:
+        return self.retrieve(last_n= self.prev_convo_length)
+
+    def retrieve(self, last_n: int) -> list[Row]:
         rows = self.connector.fetch_all(
             queries.RETRIEVE_CONVERSATION,
             parameters= (last_n,)
