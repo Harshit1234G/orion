@@ -10,5 +10,6 @@ __all__ = [
     'SAVE_LONG_TERM_MEMORY',
     'RETRIEVE_FROM_ID',
     'RETRIEVE_FROM_KEY',
-    'GET_ALL_KEYS'
+    'GET_ALL_KEYS',
+    'UPDATE_LAST_ACCESSED_AT'
 ]

@@ -66,13 +66,13 @@ class ConversationMemory(Memory):
 
     def save(
         self,
-        role: Sequence[Literal['user', 'assistant', 'tool']],
-        content: Sequence[str]
+        roles: Sequence[Literal['user', 'assistant', 'tool']],
+        contents: Sequence[str]
     ) -> None:
         with self.connector.transaction():
             self.connector.execute_many(
                 queries.SAVE_CONVERSATION,
-                parameters= (role, content)
+                parameters= zip(roles, contents)
             )
 
         logger.info(f'{LOGGING_NAME} Saved conversation to `conversation_events` table.')
@@ -157,8 +157,9 @@ class LongTermMemory(Memory):
 
         logger.info(f'{LOGGING_NAME} Saved long term memory to `long_term_memory` table.')
 
-    def get_all_keys(self) -> list:
-        return self.connector.fetch_all(queries.GET_ALL_KEYS)
+    def get_all_keys(self) -> list[str]:
+        keys = self.connector.fetch_all(queries.GET_ALL_KEYS)
+        return [key[0] for key in keys]
 
     def retrieve(
         self,
@@ -170,6 +171,8 @@ class LongTermMemory(Memory):
         with_lower_importance_than: Optional[int] = None,
         is_active: Optional[bool] = True 
     ) -> Row:
+            self.__update_last_accessed_at(from_key)
+
             # if from_id or from_key is provided than all other args will be ignored
             if from_id is not None:
                 logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
@@ -213,30 +216,61 @@ class LongTermMemory(Memory):
             logger.info(f'{LOGGING_NAME} Retrieving long term memory based on {len(conditions)} conditions.')
             return self.connector.fetch_all(query, parameters)
 
-    def delete(
-        self, 
-        key: str,
-        *, 
-        permanently: bool = False
-    ) -> None:
-        if permanently:
-            with self.connector.transaction():
-                self.connector.execute(
-                    queries.DELETE_LONG_TERM_MEMORY,
-                    parameters= (key,)
-                )
+    def delete(self, key: str) -> None:
+        with self.connector.transaction():
+            self.connector.execute(
+                queries.DELETE_LONG_TERM_MEMORY,
+                parameters= (key,)
+            )
 
-                logger.info(f'{LOGGING_NAME} Permanently deleted long term memory with {key = }')
-                return
+        logger.info(f'{LOGGING_NAME} Permanently deleted long term memory with {key = }')
 
-        self.update()
+    def __update_last_accessed_at(self, key: str) -> None:
+        with self.connector.transaction():
+            self.connector.execute(
+                queries.UPDATE_LAST_ACCESSED_AT,
+                parameters= (key,)
+            )
 
     def update(
         self,
-        content: Optional[str] = None,
-
+        key: str,
+        content: str,
+        *,
+        category: Optional[str] = None,
+        importance: Optional[int] = None,
+        expires_at: Optional[str] = None,
+        is_active: Optional[bool] = None
     ) -> None:
-        ...
+        parameters = [content]
+        variables = ['content = ?']
+
+        if category is not None:
+            parameters.append(category)
+            variables.append('category = ?')
+
+        if importance is not None:
+            parameters.append(importance)
+            variables.append('importance = ?')
+
+        if expires_at is not None:
+            parameters.append(expires_at)
+            variables.append('expires_at = ?')
+
+        if is_active is not None:
+            parameters.append(is_active)
+            variables.append('is_active = ?')
+
+        variables.append('updated_at = CURRENT_TIMESTAMP')
+        parameters.append(key)
+
+        query = 'UPDATE long_term_memory SET '
+        query = query + ', '.join(variables) + ' WHERE key = ?'
+
+        print(query)
+
+        with self.connector.transaction():
+            self.connector.execute(query, parameters)
 
 
 class EnvironmentMemory(Memory):

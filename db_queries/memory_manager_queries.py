@@ -73,3 +73,9 @@ GET_ALL_KEYS = '''
 SELECT key
 FROM long_term_memory
 '''
+
+UPDATE_LAST_ACCESSED_AT = '''
+UPDATE long_term_memory
+SET last_accessed_at = CURRENT_TIMESTAMP
+WHERE key = ?
+'''
