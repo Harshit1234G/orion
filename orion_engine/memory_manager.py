@@ -121,8 +121,8 @@ class SessionMemory:
         """
         Replaces the current session memory with the provided summary. Preserve all existing information while updating; only condense or shorten the content when the memory becomes large.
         """
-        logger.info(f'{LOGGING_NAME} Session Memory updated successfully.')
         self.memory = summary
+        logger.info(f'{LOGGING_NAME} Session Memory updated successfully.')
 
 
 class LongTermMemory(Memory):
@@ -276,13 +276,29 @@ class LongTermMemory(Memory):
         with self.connector.transaction():
             self.connector.execute(query, parameters)
 
+        logger.info(f'{LOGGING_NAME} Updated long term memory with {key = }')
+
 
 class EnvironmentMemory(Memory):
     def __init__(self):
         raise NotImplementedError()
 
 # ------------------
-# Manager
+# Manager & Tools
 # ------------------
-class MemoryManager:
+@tm.tool
+class MemoryManagementTools:
     ...
+
+
+class MemoryManager:
+    def __init__(self) -> None:
+        self.db_conn = DatabaseConnector()
+        self.conversation_memory = ConversationMemory(self.db_conn)
+        self.session_memory = SessionMemory()
+        self.long_term_memory = LongTermMemory(self.db_conn)
+        # self.environment_memory = EnvironmentMemory(self.db_conn)        # will throw error 
+        self.memory_tools = MemoryManagementTools()
+
+    
+        
