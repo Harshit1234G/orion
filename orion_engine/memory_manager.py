@@ -114,7 +114,9 @@ class SessionMemory:
         return self.memory
 
     def update(self, summary: str) -> None:
-        """Replaces the current session's memory with the provided summary."""
+        """
+        Replaces the current session memory with the provided summary. Preserve all existing information while updating; only condense or shorten the content when the memory becomes large.
+        """
         logger.info(f'{LOGGING_NAME} Session Memory updated successfully.')
         self.memory = summary
 
@@ -266,8 +268,6 @@ class LongTermMemory(Memory):
 
         query = 'UPDATE long_term_memory SET '
         query = query + ', '.join(variables) + ' WHERE key = ?'
-
-        print(query)
 
         with self.connector.transaction():
             self.connector.execute(query, parameters)

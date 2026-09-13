@@ -24,7 +24,13 @@ class ToolManager:
 
     def __initialize_namespace(self, obj: object) -> OpenAIToolNamespaceSchema:
         try:
-            name = inspect.getmodule(obj).__name__.split('.')[1]
+            name = "".join(
+                [
+                    f'_{c.lower()}' 
+                    if c.isupper() else c 
+                    for c in obj.__class__.__name__
+                ]
+            ).lstrip('_')
 
         except:
             name = f'namespace_{len(self.namespaces)}'
