@@ -1,6 +1,6 @@
 import inspect
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, ClassVar
 from dataclasses import asdict
 
 from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
@@ -11,15 +11,15 @@ LOGGING_NAME = '[ToolManager]'
 
 
 class ToolManager:
-    namespaces = []
-    callable_tools = {}
+    namespaces: ClassVar[list[dict]] = []
+    callable_tools: ClassVar[dict[str, Callable]] = {}
 
     @classmethod
-    def append_to_namespaces(cls, namespace: dict) -> None:
+    def _append_to_namespaces(cls, namespace: dict) -> None:
         cls.namespaces.append(namespace)
 
     @classmethod
-    def add_to_callable_tools(cls, tool: str, func: Callable) -> None:
+    def _add_to_callable_tools(cls, tool: str, func: Callable) -> None:
         cls.callable_tools[tool] = func
 
     def __initialize_namespace(self, obj: object) -> OpenAIToolNamespaceSchema:
@@ -82,44 +82,64 @@ class ToolManager:
             required= required
         )
 
+    def __register_method(
+        self,
+        namespace: OpenAIToolNamespaceSchema,
+        obj: object,
+        method_name: str
+    ) -> None:
+        callable_method = getattr(obj, method_name)
+        self._add_to_callable_tools(f'{namespace.name}.{method_name}', callable_method)
+
+        namespace.tools.append(
+            Tool(
+                name= method_name,
+                description= inspect.getdoc(callable_method),
+                parameters= self.__create_parameters_for_tools(callable_method)
+            )
+        )
+
+    def __register_class(
+        self,
+        class_: type[Any], 
+        exclude: Optional[set[str]],
+        *args, 
+        **kwargs
+    ) -> None:
+        if not inspect.isclass(class_):
+            raise TypeError(f'{LOGGING_NAME} {class_} is not a class.')
+        
+        obj = class_(*args, **kwargs)
+        namespace = self.__initialize_namespace(obj)
+
+        for method_name in self.__get_public_methods(obj):
+            if method_name in exclude:
+                continue
+
+            self.__register_method(
+                namespace,
+                obj,
+                method_name
+            )
+
+        self._append_to_namespaces(asdict(namespace))
+        logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
+
     def tool(self, *, exclude: Optional[set[str]] = None):
-        exclude = exclude or set()
+        exclude = exclude or set()    # `or` returns the first truthy set object
 
-        def decorator(cls: type[Any]):
-            @wraps(cls)
+        def decorator(class_: type[Any]):
+            # @wraps(class_)
             def wrapper(*args, **kwargs):
-                if not inspect.isclass(cls):
-                    raise TypeError(f'{LOGGING_NAME} {cls} is not a class.')
-
                 try:
-                    obj = cls(*args, **kwargs)
-                    namespace = self.__initialize_namespace(obj)
-                    public_methods = self.__get_public_methods(obj)
-
-                    for method in public_methods:
-                        if method in exclude:
-                            continue
-                        
-                        callable_method = getattr(obj, method)
-                        self.add_to_callable_tools(f'{namespace.name}.{method}', callable_method)
-            
-                        namespace.tools.append(
-                            Tool(
-                                name= method,
-                                description= inspect.getdoc(callable_method),
-                                parameters= self.__create_parameters_for_tools(callable_method)
-                            )
-                        )
-
-                    self.append_to_namespaces(asdict(namespace))
+                    self.__register_class(class_, exclude, *args, **kwargs)
+                    return class_
 
                 except Exception as e:
-                    raise OrionEngineException(f'{LOGGING_NAME} An error occured while registering namespace: {e}')
-
-                logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
-                logger.info(f'{LOGGING_NAME} TOTAL_NAMESPACES: {len(self.namespaces)}, OVERALL_CALLABLE_TOOLS: {len(self.callable_tools)}')
-
-                return obj
+                    raise OrionEngineException(
+                        f'{LOGGING_NAME} An error occured while registering namespace.'
+                    ) from e
+            
             return wrapper
         return decorator
 
