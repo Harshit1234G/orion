@@ -49,6 +49,8 @@ class Memory(ABC):
 # Main memory classes
 # ----------------------
 class ConversationMemory(Memory):
+    table_name = 'conversation_events'
+
     def __init__(self, connector: DatabaseConnector) -> None:
         super().__init__()
         self.connector = connector
@@ -58,25 +60,25 @@ class ConversationMemory(Memory):
         with self.connector.transaction():
             self.connector.execute(queries.CONVERSATION_MEMORY_CREATE_TABLE)
 
-        logger.info(f'{LOGGING_NAME} Created `conversation_events` table.')
+        logger.info(f'{LOGGING_NAME} Created `{self.table_name}` table.')
 
     def delete_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
                 queries.DROP_TABLE,
-                parameters= ('conversation_events',)
+                parameters= (self.table_name,)
             )
 
-        logger.info(f'{LOGGING_NAME} Deleted `conversation_events` table.')
+        logger.info(f'{LOGGING_NAME} Deleted `{self.table_name}` table.')
 
     def reset_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
                 queries.RESET_TABLE,
-                parameters= ('conversation_events',)
+                parameters= (self.table_name,)
             )
 
-        logger.info(f'{LOGGING_NAME} Reseted `conversation_events` table.')
+        logger.info(f'{LOGGING_NAME} Reseted `{self.table_name}` table.')
 
     def save(
         self,
@@ -139,6 +141,8 @@ class SessionMemory:
 
 
 class LongTermMemory(Memory):
+    table_name = 'long_term_memory'
+    
     def __init__(self, connector: DatabaseConnector) -> None:
         super().__init__()
         self.connector = connector
@@ -147,25 +151,25 @@ class LongTermMemory(Memory):
         with self.connector.transaction():
             self.connector.execute(queries.LONG_TERM_MEMORY_CREATE_TABLE)
 
-        logger.info(f'{LOGGING_NAME} Created `long_term_memory` table.')
+        logger.info(f'{LOGGING_NAME} Created `{self.table_name}` table.')
 
     def delete_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
                 queries.DROP_TABLE,
-                parameters= ('long_term_memory',)
+                parameters= (self.table_name,)
             )
 
-        logger.info(f'{LOGGING_NAME} Deleted `long_term_memory` table.')
+        logger.info(f'{LOGGING_NAME} Deleted `{self.table_name}` table.')
 
     def reset_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
                 queries.RESET_TABLE,
-                parameters= ('long_term_memory',)
+                parameters= (self.table_name,)
             )
 
-        logger.info(f'{LOGGING_NAME} Reseted `long_term_memory` table.')
+        logger.info(f'{LOGGING_NAME} Reseted `{self.table_name}` table.')
 
     def save(
         self,
@@ -183,7 +187,7 @@ class LongTermMemory(Memory):
                 parameters= (key, content, category, importance, expires_at)
             )
 
-        logger.info(f'{LOGGING_NAME} Saved long term memory to `long_term_memory` table.')
+        logger.info(f'{LOGGING_NAME} Saved long term memory.')
 
     def get_all_keys(self) -> list[str]:
         keys = self.connector.fetch_all(queries.GET_ALL_KEYS)
