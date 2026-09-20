@@ -1,6 +1,6 @@
 import inspect
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from dataclasses import asdict
 
 from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
@@ -82,40 +82,46 @@ class ToolManager:
             required= required
         )
 
-    def tool(self, cls: type[Any]):
-        @wraps(cls)
-        def wrapper(*args, **kwargs):
-            if not inspect.isclass(cls):
-                raise TypeError(f'{LOGGING_NAME} {cls} is not a class.')
+    def tool(self, *, exclude: Optional[set[str]] = None):
+        exclude = exclude or set()
 
-            try:
-                obj = cls(*args, **kwargs)
-                namespace = self.__initialize_namespace(obj)
-                public_methods = self.__get_public_methods(obj)
+        def decorator(cls: type[Any]):
+            @wraps(cls)
+            def wrapper(*args, **kwargs):
+                if not inspect.isclass(cls):
+                    raise TypeError(f'{LOGGING_NAME} {cls} is not a class.')
 
-                for method in public_methods:
-                    callable_method = getattr(obj, method)
-                    self.add_to_callable_tools(f'{namespace.name}.{method}', callable_method)
-        
-                    namespace.tools.append(
-                        Tool(
-                            name= method,
-                            description= inspect.getdoc(callable_method),
-                            parameters= self.__create_parameters_for_tools(callable_method)
+                try:
+                    obj = cls(*args, **kwargs)
+                    namespace = self.__initialize_namespace(obj)
+                    public_methods = self.__get_public_methods(obj)
+
+                    for method in public_methods:
+                        if method in exclude:
+                            continue
+                        
+                        callable_method = getattr(obj, method)
+                        self.add_to_callable_tools(f'{namespace.name}.{method}', callable_method)
+            
+                        namespace.tools.append(
+                            Tool(
+                                name= method,
+                                description= inspect.getdoc(callable_method),
+                                parameters= self.__create_parameters_for_tools(callable_method)
+                            )
                         )
-                    )
 
-                self.append_to_namespaces(asdict(namespace))
+                    self.append_to_namespaces(asdict(namespace))
 
-            except Exception as e:
-                raise OrionEngineException(f'{LOGGING_NAME} An error occured while registering namespace: {e}')
+                except Exception as e:
+                    raise OrionEngineException(f'{LOGGING_NAME} An error occured while registering namespace: {e}')
 
-            logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
-            logger.info(f'{LOGGING_NAME} TOTAL_NAMESPACES: {len(self.namespaces)}, OVERALL_CALLABLE_TOOLS: {len(self.callable_tools)}')
+                logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
+                logger.info(f'{LOGGING_NAME} TOTAL_NAMESPACES: {len(self.namespaces)}, OVERALL_CALLABLE_TOOLS: {len(self.callable_tools)}')
 
-            return obj
-        
-        return wrapper
+                return obj
+            return wrapper
+        return decorator
 
     def call(self, name: str, *args, **kwargs) -> Any:
         return self.callable_tools[name](*args, **kwargs)

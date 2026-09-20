@@ -48,6 +48,7 @@ class Memory(ABC):
 # ----------------------
 # Main memory classes
 # ----------------------
+@tm.tool(exclude= {'create_table', 'delete_table', 'reset_table', 'save', 'delete', 'update'})
 class ConversationMemory(Memory):
     table_name = 'conversation_events'
 
@@ -119,7 +120,7 @@ class ConversationMemory(Memory):
         raise NotImplementedError(f'{LOGGING_NAME} ConversationMemory doesn\'t require updation, so `update` method is not implemented.')
         
 
-@tm.tool
+@tm.tool()
 class SessionMemory:
     """
     Manages the current session's memory by updating and retrieving it. The memory contains a summary of what happened throughout the session, not the actual conversation.

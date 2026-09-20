@@ -4,7 +4,7 @@ from orion_engine import ToolManager
 
 tm = ToolManager()
 
-@tm.tool
+@tm.tool()
 class FileSystem:
     """
     Tools for reading, writing, or creating files and directories.
