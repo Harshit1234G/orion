@@ -1,6 +1,7 @@
 import inspect
 # from functools import wraps
-from typing import Any, Callable, Optional, ClassVar
+from typing import Any, Callable, Optional, ClassVar, Union, get_args, get_origin
+import types
 from dataclasses import asdict
 
 from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
@@ -14,6 +15,9 @@ class ToolManager:
     namespaces: ClassVar[list[dict]] = []
     callable_tools: ClassVar[dict[str, Callable]] = {}
 
+    # -------------------
+    # Class methods
+    # -------------------
     @classmethod
     def _append_to_namespaces(cls, namespace: dict) -> None:
         cls.namespaces.append(namespace)
@@ -22,6 +26,9 @@ class ToolManager:
     def _add_to_callable_tools(cls, tool: str, func: Callable) -> None:
         cls.callable_tools[tool] = func
 
+    # -------------------------
+    # schema building methods
+    # -------------------------
     def __initialize_namespace(self, obj: object) -> OpenAIToolNamespaceSchema:
         try:
             name = "".join(
@@ -49,25 +56,68 @@ class ToolManager:
             if not method.startswith('_')
         ]
 
-    @staticmethod
-    def __py_to_json(obj: object) -> str:
-        py_to_json = {
-            str: 'string',
-            int: 'number',
-            float: 'number',
-            dict: 'object',
-            list: 'array',
-            tuple: 'array',
-            bool: 'boolean',
-            None: 'null'
-        }
-        return py_to_json[obj]
+    #** method to convert py objects to json schema
+    def __annotation_to_schema(self, annotation: Any) -> dict:
+        if annotation is Any:
+            return {}
+
+        if annotation is type(None):
+            return {'type': 'null'}
+
+        if annotation is str:
+            return {'type': 'string'}
+
+        if annotation is int:
+            return {'type': 'integer'}
+
+        if annotation is float:
+            return {'type': 'number'}
+
+        if annotation is bool:
+            return {'type': 'boolean'}
+
+        if annotation is dict:
+            return {'type': 'object'}
+
+        if annotation is list:
+            return {'type': 'array'}
+
+        if annotation is tuple:
+            return {'type': 'array'}
+
+        origin = get_origin(annotation)
+        args = get_args(annotation)
+
+        if origin is list:
+            return {
+                'type': 'array',
+                'items': self.__type_to_schema(args[0])
+            }
+
+        if origin is dict:
+            return {
+                'type': 'object'
+            }
+
+        if origin in (Union, types.UnionType):
+            schemas = [
+                self.__type_to_schema(arg)
+                for arg in args
+            ]
+
+            return {
+                'anyOf': schemas
+            }
+
+        raise TypeError(
+            f'Unsupported annotation: {annotation!r}'
+        )
 
     def __create_parameters_for_tools(self, method: Callable) -> Parameters:
         annotations = inspect.get_annotations(method)
         del annotations['return']
         properties = {
-            key: {'type': self.__py_to_json(value)}
+            key: self.__annotation_to_schema(value)
             for key, value in annotations.items()
         }
 
@@ -82,6 +132,9 @@ class ToolManager:
             required= required
         )
 
+    # ----------------------
+    # Registration methods
+    # ----------------------
     def __register_method(
         self,
         namespace: OpenAIToolNamespaceSchema,
@@ -127,6 +180,9 @@ class ToolManager:
 
         return obj
 
+    # -------------------
+    # Public methods
+    # -------------------
     def tool(self, *, exclude: Optional[set[str]] = None):
         exclude = exclude or set()    # `or` returns the first truthy set object
 
