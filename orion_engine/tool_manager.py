@@ -1,5 +1,5 @@
 import inspect
-from functools import wraps
+# from functools import wraps
 from typing import Any, Callable, Optional, ClassVar
 from dataclasses import asdict
 
@@ -105,7 +105,7 @@ class ToolManager:
         exclude: Optional[set[str]],
         *args, 
         **kwargs
-    ) -> None:
+    ) -> object:
         if not inspect.isclass(class_):
             raise TypeError(f'{LOGGING_NAME} {class_} is not a class.')
         
@@ -125,6 +125,8 @@ class ToolManager:
         self._append_to_namespaces(asdict(namespace))
         logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
 
+        return obj
+
     def tool(self, *, exclude: Optional[set[str]] = None):
         exclude = exclude or set()    # `or` returns the first truthy set object
 
@@ -132,8 +134,7 @@ class ToolManager:
             # @wraps(class_)
             def wrapper(*args, **kwargs):
                 try:
-                    self.__register_class(class_, exclude, *args, **kwargs)
-                    return class_
+                    return self.__register_class(class_, exclude, *args, **kwargs)
 
                 except Exception as e:
                     raise OrionEngineException(
