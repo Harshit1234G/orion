@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import NoReturn, Optional
+from typing import NoReturn, Optional, Iterator
 import dateutil
 from sqlite3 import Row
 
@@ -22,6 +22,10 @@ class Memory(ABC):
 
     @abstractmethod
     def delete_table() -> None:
+        ...
+
+    @abstractmethod
+    def reset_table() -> None:
         ...
 
     @abstractmethod
@@ -65,9 +69,18 @@ class ConversationMemory(Memory):
 
         logger.info(f'{LOGGING_NAME} Deleted `conversation_events` table.')
 
+    def reset_table(self) -> None:
+        with self.connector.transaction():
+            self.connector.execute(
+                queries.RESET_TABLE,
+                parameters= ('conversation_events',)
+            )
+
+        logger.info(f'{LOGGING_NAME} Reseted `conversation_events` table.')
+
     def save(
         self,
-        conversation: tuple[str, str]     # like zip(roles, contents)
+        conversation: Iterator     # like zip(roles, contents)
     ) -> None:
         with self.connector.transaction():
             self.connector.execute_many(
@@ -76,7 +89,7 @@ class ConversationMemory(Memory):
             )
 
         self.prev_convo_length = len(conversation)
-        logger.info(f'{LOGGING_NAME} Saved conversation to `conversation_events` table.')
+        logger.info(f'{LOGGING_NAME} Saved conversation.')
 
     def retrieve_previous_conversation(self) -> list[Row]:
         return self.retrieve(last_n= self.prev_convo_length)
@@ -87,7 +100,7 @@ class ConversationMemory(Memory):
             parameters= (last_n,)
         )
 
-        logger.info(f'{LOGGING_NAME} Retrieved {last_n} rows from `conversation_events` table.')
+        logger.info(f'{LOGGING_NAME} Retrieved {last_n} rows of conversation.')
         return rows[::-1]
             
 
@@ -144,6 +157,15 @@ class LongTermMemory(Memory):
             )
 
         logger.info(f'{LOGGING_NAME} Deleted `long_term_memory` table.')
+
+    def reset_table(self) -> None:
+        with self.connector.transaction():
+            self.connector.execute(
+                queries.RESET_TABLE,
+                parameters= ('long_term_memory',)
+            )
+
+        logger.info(f'{LOGGING_NAME} Reseted `long_term_memory` table.')
 
     def save(
         self,
@@ -284,21 +306,19 @@ class EnvironmentMemory(Memory):
         raise NotImplementedError()
 
 # ------------------
-# Manager & Tools
+# Manager
 # ------------------
-@tm.tool
-class MemoryManagementTools:
-    ...
-
-
 class MemoryManager:
     def __init__(self) -> None:
         self.db_conn = DatabaseConnector()
-        self.conversation_memory = ConversationMemory(self.db_conn)
-        self.session_memory = SessionMemory()
-        self.long_term_memory = LongTermMemory(self.db_conn)
+        self.conversation = ConversationMemory(self.db_conn)
+        self.session = SessionMemory()
+        self.long_term = LongTermMemory(self.db_conn)
         # self.environment_memory = EnvironmentMemory(self.db_conn)        # will throw error 
-        self.memory_tools = MemoryManagementTools()
 
-    
+    def simplify_conversation(self) -> Iterator:
+        ...
+
+    def shutdown(self) -> None:
+        self.db_conn.close()
         

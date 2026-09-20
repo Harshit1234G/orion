@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS conversation_events(
 
 DROP_TABLE = 'DROP TABLE IF EXISTS ?'
 
+RESET_TABLE = 'DELETE FROM ?'
+
 SAVE_CONVERSATION = '''
 INSERT INTO conversation_events (role, content)
 VALUES (?, ?)
