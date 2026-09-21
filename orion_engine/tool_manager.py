@@ -91,7 +91,7 @@ class ToolManager:
         if origin is list:
             return {
                 'type': 'array',
-                'items': self.__type_to_schema(args[0])
+                'items': self.__annotation_to_schema(args[0])
             }
 
         if origin is dict:
@@ -101,7 +101,7 @@ class ToolManager:
 
         if origin in (Union, types.UnionType):
             schemas = [
-                self.__type_to_schema(arg)
+                self.__annotation_to_schema(arg)
                 for arg in args
             ]
 
@@ -114,18 +114,29 @@ class ToolManager:
         )
 
     def __create_parameters_for_tools(self, method: Callable) -> Parameters:
-        annotations = inspect.get_annotations(method)
-        del annotations['return']
-        properties = {
-            key: self.__annotation_to_schema(value)
-            for key, value in annotations.items()
-        }
-
-        required = []
         sig = inspect.signature(method)
+        properties = {}
+        required = []
+
         for name, param in sig.parameters.items():
+            if param.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD
+            ):
+                continue
+
+            if param.annotation is inspect.Parameter.empty:
+                raise TypeError(
+                    f'{LOGGING_NAME} Tool parameter `{name}` has no type annotation.'
+                )
+
+            properties[name] = self.__annotation_to_schema(param.annotation)
+
             if param.default is inspect.Parameter.empty:
                 required.append(name)
+
+            else:
+                properties[name]['default'] = param.default
 
         return Parameters(
             properties= properties,
