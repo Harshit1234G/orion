@@ -57,12 +57,19 @@ class BaseRecognizer(ABC):
 # Recorder
 # ----------------------------
 class SoundDeviceRecorder(BaseRecorder):
+    """Record audio from an input device using SoundDevice."""
     def __init__(
         self, 
         *, 
         samplerate: int = 16_000, 
         frames: int = 512
     ) -> None:
+        """Initialize and start the audio input stream.
+
+        Args:
+            samplerate: Number of audio samples captured per second.
+            frames: Number of audio frames read per recording operation.
+        """
         super().__init__()
         self.frames = frames
         self.stream = sd.InputStream(
@@ -75,10 +82,12 @@ class SoundDeviceRecorder(BaseRecorder):
         self.stream.start()
 
     def record(self) -> np.ndarray:
+        """Read and return the next audio chunk from the input stream."""
         audio, _ = self.stream.read(self.frames)
         return audio
 
     def stop(self) -> None:
+        """Stop and close the audio input stream.""" 
         self.stream.stop()
         self.stream.close()
 
@@ -87,6 +96,7 @@ class SoundDeviceRecorder(BaseRecorder):
 # Voice Activity Detector
 # ----------------------------
 class SileroVAD(BaseVAD):
+    """Detect voice activity in audio using Silero VAD."""
     def __init__(self, **vad_kwargs):
         super().__init__()
         self.model = silero.load_silero_vad()
@@ -96,6 +106,7 @@ class SileroVAD(BaseVAD):
         )
 
     def detect(self, chunk: np.ndarray) -> dict[str, int | float] | None:
+        """Analyze an audio chunk and detect voice activity."""
         # preprocessing
         chunk = chunk.squeeze()     # (C, 1) -> (C,)
         chunk = chunk.astype(np.float32) / 32768.0
@@ -103,10 +114,12 @@ class SileroVAD(BaseVAD):
 
         return self.iterator(chunk)
 
-    def reset(self):
+    def reset(self) -> None:
+        """Reset the VAD state for a new audio sequence."""
         self.iterator.reset_states()
 
     def __check(self, detection: dict | None, word: str) -> bool:
+        """Check whether a VAD detection matches the specified event."""
         if detection is None:
             return False
 
@@ -114,9 +127,11 @@ class SileroVAD(BaseVAD):
         return key == word
 
     def check_start(self, detection: dict | None) -> bool:
+        """Check whether a detection indicates the start of speech."""
         return self.__check(detection, 'start')
 
     def check_end(self, detection: dict | None) -> bool:
+        """Check whether a detection indicates the end of speech."""
         return self.__check(detection, 'end')
 
 
@@ -124,6 +139,7 @@ class SileroVAD(BaseVAD):
 # Recognizer
 # ----------------------------
 class FasterWhisperRecognizer(BaseRecognizer):
+    """Recognize speech from audio using a Faster Whisper model."""
     def __init__(
         self,
         *, 
@@ -131,6 +147,13 @@ class FasterWhisperRecognizer(BaseRecognizer):
         language: str = 'en',
         compute_type: str = 'auto'
     ) -> None:
+        """Initialize the speech recognition model.
+
+        Args:
+            model: The Faster Whisper model size to use.
+            language: Language expected in the input audio.
+            compute_type: Computation type used by the model.
+        """
         super().__init__()
         self.language = language
         self.model = WhisperModel(
@@ -139,6 +162,7 @@ class FasterWhisperRecognizer(BaseRecognizer):
         )
 
     def recognize(self, audio) -> Iterable:
+        """Transcribe the provided audio into speech segments."""
         segments, _ = self.model.transcribe(
             audio,
             language= self.language,
@@ -152,6 +176,11 @@ class FasterWhisperRecognizer(BaseRecognizer):
 # Manager
 # ----------------------------
 class STTManager:
+    """Manage the audio recording, voice detection, and speech recognition pipeline.
+
+    Coordinates audio capture, voice activity detection, and speech-to-text
+    processing using separate worker threads and queues.
+    """
     _STOP = object()
 
     def __init__(
@@ -162,6 +191,15 @@ class STTManager:
         utterance_buffer_size: int = 25, 
         transcript_buffer_size: int = 25
     ) -> None:
+        """Initialize the speech-to-text pipeline and start its workers.
+
+        Args:
+            model: Speech recognition model to use.
+            audio_buffer_size: Maximum number of audio chunks held for voice activity detection.
+            utterance_buffer_size: Maximum number of detected utterances waiting for recognition.
+            transcript_buffer_size: Maximum number of recognized transcripts waiting to be retrieved.
+        """
+        # main attributes
         self.recorder = SoundDeviceRecorder()
         self.vad = SileroVAD()
         self.recognizer = FasterWhisperRecognizer(
@@ -172,6 +210,7 @@ class STTManager:
         self.utterance_queue = Queue(maxsize= utterance_buffer_size)
         self.transcript_queue = Queue(maxsize= transcript_buffer_size)
 
+        # threads
         self.stop_event = Event()
         self.listening_event = Event()
 
@@ -185,22 +224,27 @@ class STTManager:
 
         logger.info(f'{LOGGING_NAME} Initialized Successfully. RECORDER: {self.recorder.__class__.__name__}, VAD: {self.vad.__class__.__name__}, RECOGNIZER: {self.recognizer.__class__.__name__}')
 
-    def start_listening(self):
+    def start_listening(self) -> None:
+        """Start capturing and processing incoming audio."""
         logger.info(f'{LOGGING_NAME} Started Listening.')
         self.listening_event.set()
 
-    def stop_listening(self):
+    def stop_listening(self) -> None:
+        """Stop capturing new audio while keeping the pipeline running."""
         logger.info(f'{LOGGING_NAME} Stopped Listening.')
         self.listening_event.clear()
 
     def get_transcript(self) -> str:
+        """Retrieve the next available speech transcript."""
         return self.transcript_queue.get()
 
     @property
-    def is_listening(self):
+    def is_listening(self) -> bool:
+        """Return whether the manager is currently listening for speech."""
         return self.listening_event.is_set()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
+        """Stop all workers and release the audio processing resources."""
         self.stop_event.set()
         self.listening_event.set()
 
@@ -213,6 +257,7 @@ class STTManager:
         logger.info(f'{LOGGING_NAME} Shutting Down.')
 
     def __recorder_loop(self) -> None:
+        """Continuously capture audio chunks while listening is enabled."""
         while True:
             try:
                 self.listening_event.wait()
@@ -228,10 +273,12 @@ class STTManager:
                 raise OrionEngineException(f'{LOGGING_NAME} Recorder worker crashed: {e}')
 
     def __vad_loop(self) -> None:
+        """Detect speech activity and assemble complete speech utterances."""
         speech_buffer = []
         recording = False
         history = deque(maxlen= 5)
 
+        # silero vad only gives where audio starts and ends, so building audio chunk based on this
         while True:
             try:
                 chunk = self.audio_queue.get()
@@ -272,6 +319,7 @@ class STTManager:
                 raise OrionEngineException(f'{LOGGING_NAME} VAD worker crashed: {e}')
 
     def __recognize_loop(self) -> None:
+        """Transcribe detected speech utterances and queue their transcripts."""
         while True:
             try:
                 audio = self.utterance_queue.get()
@@ -279,6 +327,7 @@ class STTManager:
                 if audio is self._STOP:
                     break
 
+                # used to debug, but no longer needed
                 logger.debug(
                     f'Audio dtype={audio.dtype}, '
                     f'shape={audio.shape}, '

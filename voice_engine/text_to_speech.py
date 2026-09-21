@@ -53,7 +53,8 @@ class TTSState(Enum):
 # Audio Player
 # ----------------------------
 class SoundDevicePlayer(BaseAudioPlayer):
-    def __init__(self, sample_rate: int):
+    """Play audio through a SoundDevice output stream."""
+    def __init__(self, sample_rate: int) -> None:
         super().__init__()
         self.stream = sd.OutputStream(
             samplerate= sample_rate,
@@ -65,9 +66,11 @@ class SoundDevicePlayer(BaseAudioPlayer):
         self.stream.start()
 
     def play(self, chunk) -> None:
+        """Play an audio chunk through the output stream."""
         self.stream.write(chunk)
 
     def stop(self) -> None:
+        """Stop and close the audio output stream."""
         self.stream.stop()
         self.stream.close()
 
@@ -76,6 +79,7 @@ class SoundDevicePlayer(BaseAudioPlayer):
 # Audio Synthesizers
 # ----------------------------
 class PiperSynthesizer(BaseSynthesizer):
+    """Synthesize speech audio using a Piper voice model."""
     def __init__(
         self, 
         voice: str, 
@@ -84,6 +88,14 @@ class PiperSynthesizer(BaseSynthesizer):
         use_cuda: bool = False,
         frame_size: int = 2048
     ) -> None:
+        """Initialize the Piper speech synthesizer.
+
+        Args:
+            voice (str): Name of the Piper voice model to load.
+            voices_dir (str, optional): Directory containing the Piper voice models. Defaults to 'voice_engine/voices'.
+            use_cuda (bool, optional): Whether to use CUDA for speech synthesis. Defaults to False.
+            frame_size (int, optional): Number of audio samples yielded per chunk. Defaults to 2048.
+        """
         super().__init__()
         voice_path = Path(voices_dir) / f'{voice}.onnx'
         self.voice = PiperVoice.load(
@@ -94,9 +106,11 @@ class PiperSynthesizer(BaseSynthesizer):
 
     @property
     def sample_rate(self) -> int:
+        """Return the sample rate required by the loaded voice model."""
         return self.voice.config.sample_rate
 
     def synthesize(self, text: str) -> Iterator:
+        """Synthesize speech from text and yield audio chunks."""
         for chunk in self.voice.synthesize(text):
             chunk_arr = chunk.audio_int16_array
 
@@ -108,6 +122,7 @@ class PiperSynthesizer(BaseSynthesizer):
 # Manager
 # ----------------------------
 class TTSManager:
+    """Manage speech synthesis, audio playback, and speech interruption.""" 
     _STOP = object()
     _END_OF_REQUEST = object()
 
@@ -119,6 +134,17 @@ class TTSManager:
         request_buffer_size: int = 5,
         audio_buffer_size: int = 25
     ) -> None:
+        """Initialize the speech synthesis and playback pipeline.
+
+        Args:
+            voice: Name of the Piper voice model to use.
+            use_cuda: Whether to use CUDA for speech synthesis.
+            request_buffer_size: Maximum number of speech requests waiting
+                for synthesis.
+            audio_buffer_size: Maximum number of audio chunks waiting
+                for playback.
+        """
+        # main attributes
         self.synthesizer = PiperSynthesizer(
             voice= voice,
             use_cuda= use_cuda
@@ -134,6 +160,7 @@ class TTSManager:
         self.interruptable_current_request = True
         self.stop_event = Event()
 
+        # threads
         self.request_worker = Thread(
             target= self.__synthesis_loop
         )
@@ -151,7 +178,14 @@ class TTSManager:
         text: str,
         *,
         interrupt: bool = True
-    ):
+    ) -> None:
+        """Queue text for speech synthesis and playback.
+
+        Args:
+            text: Text to synthesize into speech.
+            interrupt: Whether the request can be interrupted while
+                being synthesized or played.
+        """ 
         logger.info(f'{LOGGING_NAME} Request Recieved. text={text[:80]!r}, {interrupt=}')
         self.request_queue.put(
             SpeechRequest(
@@ -160,7 +194,8 @@ class TTSManager:
             )
         )
 
-    def interrupt(self):
+    def interrupt(self) -> None:
+        """Interrupt the current speech request when interruption is allowed."""
         if self.interruptable_current_request:
             logger.info(f'{LOGGING_NAME} Interrupted.')
             self.stop_event.set()
@@ -168,7 +203,8 @@ class TTSManager:
             self.__clear_queue(self.audio_queue)
             self.__clear_queue(self.request_queue)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
+        """Stop the worker threads and release audio playback resources."""
         self.request_queue.put(self._STOP)
         self.audio_queue.put(self._STOP)
 
@@ -180,10 +216,12 @@ class TTSManager:
 
     @property
     def is_speaking(self) -> bool:
+        """Return whether audio is currently being played."""
         return self.state == TTSState.PLAYING
 
     @staticmethod
-    def __clear_queue(queue: Queue):
+    def __clear_queue(queue: Queue) -> None:
+        """Remove all currently queued items from a queue."""
         while True:
             try:
                 queue.get_nowait()
@@ -191,9 +229,11 @@ class TTSManager:
             except Empty:
                 break
 
-    def __synthesis_loop(self):
+    def __synthesis_loop(self) -> None:
+        """Continuously synthesize queued speech requests into audio chunks."""
         while True:
             try:
+                # Wait for the next speech request from the request queue.
                 request = self.request_queue.get()
                 if request is self._STOP:
                     self.audio_queue.put(self._STOP)
@@ -204,6 +244,7 @@ class TTSManager:
                 self.stop_event.clear()
                 self.interruptable_current_request = request.interrupt
 
+                # Synthesize the request and enqueue each audio chunk for playback.
                 for chunk in self.synthesizer.synthesize(request.text):
                     if request.interrupt and self.stop_event.is_set():
                         logger.debug(f'{LOGGING_NAME} Synthesis Interrupted.')
@@ -216,9 +257,11 @@ class TTSManager:
             except Exception as e:
                 raise OrionEngineException(f'{LOGGING_NAME} Synthesis worker crashed: {e}')
 
-    def __playback_loop(self):
+    def __playback_loop(self) -> None:
+        """Continuously play synthesized audio chunks from the audio queue."""
         while True:
             try:
+                # Wait for the next synthesized audio chunk or control signal.
                 chunk = self.audio_queue.get()
                 if chunk is self._STOP:
                     break

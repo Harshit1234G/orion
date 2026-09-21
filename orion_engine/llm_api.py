@@ -1,7 +1,8 @@
 from enum import Enum
 from dataclasses import dataclass
 from typing import Any
-from openai import OpenAI
+from openai import OpenAI, Stream
+from openai.types.responses import Response, ResponseStreamEvent
 
 from utils import logger, load_api_key_from_env, load_api_key_keyring
 
@@ -10,7 +11,7 @@ LOGGING_NAME = '[LLM_API]'
 
 
 # ----------------------------
-# Helper Classes
+# Model enum & tool schemas
 # ----------------------------
 class OpenAIModels(str, Enum):
     FAST = 'gpt-5-nano'
@@ -47,7 +48,14 @@ class OpenAIToolNamespaceSchema:
 # Main Classes
 # ----------------------------
 class OpenAIClient:
-    def __init__(self):
+    """A lightweight wrapper around the OpenAI API client. 
+
+    Automatically loads the OpenAI API key from the environment or system keyring and initializes an OpenAI client instance. 
+    
+    Raises: 
+        RuntimeError: If no OpenAI API key can be found.
+    """
+    def __init__(self) -> None:
         api_key = (
             load_api_key_from_env() 
             or 
@@ -66,7 +74,17 @@ class OpenAIClient:
         model: OpenAIModels,
         input: Any,
         **kwargs
-    ):
+    ) -> Response | Stream[ResponseStreamEvent]:
+        """Generate a response using the OpenAI Responses API.
+
+        Args:
+            model (OpenAIModels): The OpenAI model to use for generation.
+            input (Any): The input provided to the model. This can be a string or a supported structured input accepted by the Responses API.
+            **kwargs: Additional keyword arguments forwarded directly to `client.responses.create()`.
+            
+        Returns:
+            Response | Stream[ResponseStreamEvent]: The response object returned by the OpenAI Responses API.
+        """
         response = self.client.responses.create(
             model= model,
             input= input,

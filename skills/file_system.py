@@ -50,10 +50,6 @@ class FileSystem:
     def write_file(self, path: str, content: str) -> str:
         """
         Writes text to the given file, also creates the directory if it doesn't exists.
-
-        Args:
-            path: Path is relative to the home directory.
-            content: Content to write in the file.
         """
         target = self._resolve(path)
 
@@ -79,4 +75,4 @@ class FileSystem:
         return str(self.root)
 
 
-FileSystem()
+FileSystem()     # this is required

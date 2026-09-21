@@ -5,6 +5,9 @@ from collections.abc import Sequence, Generator
 
 
 class DatabaseConnector:
+    """Establishes connection to Orion's database, 
+    and provides basic methods for executing and fetching commands.
+    """
     def __init__(self) -> None:
         db_dir = Path('database')
         db_dir.mkdir(exist_ok= True)
@@ -59,6 +62,7 @@ class DatabaseConnector:
     # transaction control
     @contextmanager
     def transaction(self) -> Generator[sqlite3.Connection]:
+        """Context manager to handle database transactions (rollback and commit)."""
         self._check_connection()
 
         try:
@@ -71,6 +75,7 @@ class DatabaseConnector:
         else:
             self.db.commit()
 
+    # manual commit and rollback facility
     def commit(self) -> None:
         self._check_connection()
         self.db.commit()

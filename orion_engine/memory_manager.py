@@ -18,14 +18,17 @@ tm = ToolManager()
 class Memory(ABC):
     @abstractmethod
     def create_table() -> None:
+        """Create the required storage structure."""
         ...
 
     @abstractmethod
     def delete_table() -> None:
+        """Delete the storage structure."""
         ...
 
     @abstractmethod
     def reset_table() -> None:
+        """Reset the storage structure to its initial state."""
         ...
 
     @abstractmethod
@@ -33,7 +36,7 @@ class Memory(ABC):
         ...
 
     @abstractmethod
-    def retrieve(*args, **kwargs) -> Row:
+    def retrieve(*args, **kwargs) -> list[Row]:
         ...
 
     @abstractmethod
@@ -48,8 +51,20 @@ class Memory(ABC):
 # ----------------------
 # Main memory classes
 # ----------------------
-@tm.tool(exclude= {'create_table', 'delete_table', 'reset_table', 'save', 'delete', 'update'})
+@tm.tool(
+    exclude= {
+        'create_table', 
+        'delete_table', 
+        'reset_table', 
+        'save', 
+        'delete', 
+        'update'
+    }
+)
 class ConversationMemory(Memory):
+    """
+    Retrieve conversations from the current session, including user messages, model responses, and tool call results.
+    """
     table_name = 'conversation_events'
 
     def __init__(self, connector: DatabaseConnector) -> None:
@@ -95,9 +110,11 @@ class ConversationMemory(Memory):
         logger.info(f'{LOGGING_NAME} Saved conversation.')
 
     def retrieve_previous_conversation(self) -> list[Row]:
+        """Retrieve the most recent conversation entries from the current session."""
         return self.retrieve(last_n= self.prev_convo_length)
 
     def retrieve(self, last_n: int) -> list[Row]:
+        """Retrieve the specified number of recent conversation entries from the current session."""
         rows = self.connector.fetch_all(
             queries.RETRIEVE_CONVERSATION,
             parameters= (last_n,)
@@ -114,7 +131,7 @@ class ConversationMemory(Memory):
                 parameters= (id_,)
             )
 
-        logger.info(f'{LOGGING_NAME} Deleted row with id {id_} from `conversation_events` table.')
+        logger.info(f'{LOGGING_NAME} Deleted conversation with id {id_}.')
 
     def update(self) -> NoReturn:
         raise NotImplementedError(f'{LOGGING_NAME} ConversationMemory doesn\'t require updation, so `update` method is not implemented.')
@@ -123,7 +140,7 @@ class ConversationMemory(Memory):
 @tm.tool()
 class SessionMemory:
     """
-    Manages the current session's memory by updating and retrieving it. The memory contains a summary of what happened throughout the session, not the actual conversation.
+    Manages the current session's memory. The memory is just a summary of the session.
     """
     def __init__(self):
         self.memory = ''
@@ -141,7 +158,9 @@ class SessionMemory:
         logger.info(f'{LOGGING_NAME} Session Memory updated successfully.')
 
 
+@tm.tool(exclude= {'create_table', 'delete_table', 'reset_table'})
 class LongTermMemory(Memory):
+    """Store, retrieve, update, and delete persistent long-term memories."""
     table_name = 'long_term_memory'
     
     def __init__(self, connector: DatabaseConnector) -> None:
@@ -180,6 +199,7 @@ class LongTermMemory(Memory):
         expires_at: str,
         importance: int = 5
     ) -> None:
+        """Save a new long-term memory."""
         expires_at = dateutil.parser.parse(expires_at) if expires_at != 'never' else expires_at
         
         with self.connector.transaction():
@@ -191,6 +211,7 @@ class LongTermMemory(Memory):
         logger.info(f'{LOGGING_NAME} Saved long term memory.')
 
     def get_all_keys(self) -> list[str]:
+        """Retrieve the keys of all stored long-term memories."""
         keys = self.connector.fetch_all(queries.GET_ALL_KEYS)
         return [key[0] for key in keys]
 
@@ -203,53 +224,60 @@ class LongTermMemory(Memory):
         with_higher_importance_than: Optional[int] = None,
         with_lower_importance_than: Optional[int] = None,
         is_active: Optional[bool] = True 
-    ) -> Row:
-            self.__update_last_accessed_at(from_key)
+    ) -> list[Row]:
+        """Retrieve long-term memories using an ID, key, or optional filters.
 
-            # if from_id or from_key is provided than all other args will be ignored
-            if from_id is not None:
-                logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
-                return self.connector.fetch_one(
-                    queries.RETRIEVE_FROM_ID,
-                    parameters= (from_id,)
-                )
+        Use ``from_id`` or ``from_key`` to retrieve a specific memory. When
+        either is provided, all other filters are ignored. Otherwise, memories
+        can be filtered by category, importance range, and active status.
+        """
+        self.__update_last_accessed_at(from_key)
 
-            if from_key is not None:
-                logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
-                return self.connector.fetch_one(
-                    queries.RETRIEVE_FROM_KEY,
-                    parameters= (from_key,)
-                )
+        # if from_id or from_key is provided than all other args will be ignored
+        if from_id is not None:
+            logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
+            return self.connector.fetch_one(
+                queries.RETRIEVE_FROM_ID,
+                parameters= (from_id,)
+            )
 
-            # building dynamic conditions
-            conditions = []
-            parameters = []
+        if from_key is not None:
+            logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
+            return self.connector.fetch_one(
+                queries.RETRIEVE_FROM_KEY,
+                parameters= (from_key,)
+            )
 
-            if grouped_by_category is not None:
-                conditions.append('category = ?')
-                parameters.append(grouped_by_category)
+        # building dynamic conditions
+        conditions = []
+        parameters = []
 
-            if with_higher_importance_than is not None:
-                conditions.append('importance > ?')
-                parameters.append(with_higher_importance_than)
+        if grouped_by_category is not None:
+            conditions.append('category = ?')
+            parameters.append(grouped_by_category)
 
-            if with_lower_importance_than is not None:
-                conditions.append('importance < ?')
-                parameters.append(with_lower_importance_than)
+        if with_higher_importance_than is not None:
+            conditions.append('importance > ?')
+            parameters.append(with_higher_importance_than)
 
-            if is_active is not None:
-                conditions.append('is_active = ?')
-                parameters.append(int(is_active))
+        if with_lower_importance_than is not None:
+            conditions.append('importance < ?')
+            parameters.append(with_lower_importance_than)
 
-            query = 'SELECT * FROM long_term_memory'
+        if is_active is not None:
+            conditions.append('is_active = ?')
+            parameters.append(int(is_active))
 
-            if conditions:
-                query += ' WHERE ' + ' AND '.join(conditions)
+        query = 'SELECT * FROM long_term_memory'
 
-            logger.info(f'{LOGGING_NAME} Retrieving long term memory based on {len(conditions)} conditions.')
-            return self.connector.fetch_all(query, parameters)
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+
+        logger.info(f'{LOGGING_NAME} Retrieving long term memory based on {len(conditions)} conditions.')
+        return self.connector.fetch_all(query, parameters)
 
     def delete(self, key: str) -> None:
+        """Permanently delete a long-term memory by its key."""
         with self.connector.transaction():
             self.connector.execute(
                 queries.DELETE_LONG_TERM_MEMORY,
@@ -275,6 +303,13 @@ class LongTermMemory(Memory):
         expires_at: Optional[str] = None,
         is_active: Optional[bool] = None
     ) -> None:
+        """Update an existing long-term memory.
+
+        The memory is identified by its key. The content is always updated,
+        while category, importance, expiration, and active status are updated
+        only when their corresponding values are provided. Unspecified optional
+        properties remain unchanged.
+        """
         parameters = [content]
         variables = ['content = ?']
 

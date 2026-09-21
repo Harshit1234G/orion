@@ -12,6 +12,15 @@ LOGGING_NAME = '[ToolManager]'
 
 
 class ToolManager:
+    """Manages tool registration, schema generation, and tool execution.
+
+    ToolManager discovers public methods from registered classes, converts
+    their type annotations into JSON-compatible parameter schemas, and
+    maintains a mapping between tool names and their callable methods.
+
+    Registered tools are grouped into namespaces corresponding to the class
+    they belong to.
+    """
     namespaces: ClassVar[list[dict]] = []
     callable_tools: ClassVar[dict[str, Callable]] = {}
 
@@ -30,7 +39,21 @@ class ToolManager:
     # schema building methods
     # -------------------------
     def __initialize_namespace(self, obj: object) -> OpenAIToolNamespaceSchema:
+        """Create a namespace schema for a registered object.
+
+        The object's class name is converted to snake_case and used as the
+        namespace name. The object's class docstring is used as the namespace
+        description.
+
+        Args:
+            obj: The object whose class will define the namespace.
+
+        Returns:
+            A new namespace schema containing the object's name,
+            description, and an empty tool list.
+        """
         name = obj.__class__.__name__
+
         # converting to snake case
         name = re.sub(
             r'(?<!^)(?=[A-Z])',
@@ -46,6 +69,7 @@ class ToolManager:
 
     @staticmethod
     def __get_public_methods(obj: object) -> list[str]:
+        """Return the names of public bound methods defined on an object."""
         methods = inspect.getmembers(obj, predicate= inspect.ismethod)
         return [
             method for method, _ in methods 
@@ -54,6 +78,12 @@ class ToolManager:
 
     #** method to convert py objects to json schema
     def __annotation_to_schema(self, annotation: Any) -> dict:
+        """
+        Convert a Python type annotation into a JSON schema fragment.
+
+        Supports basic Python types, `Any`, lists, dictionaries, tuples,
+        and union types.
+        """
         if annotation is Any:
             return {}
 
@@ -105,11 +135,30 @@ class ToolManager:
                 'anyOf': schemas
             }
 
+        # TODO: Add Literal annotation support if needed
+
         raise TypeError(
             f'Unsupported annotation: {annotation!r}'
         )
 
     def __create_parameters_for_tools(self, method: Callable) -> Parameters:
+        """Build a parameter schema from a callable's signature.
+
+        Parameter annotations are converted into JSON schema fragments.
+        Parameters without default values are marked as required.
+        Variadic positional and keyword parameters are ignored.
+
+        Args:
+            method: The callable whose parameters should be inspected.
+
+        Returns:
+            A ``Parameters`` object describing the callable's accepted
+            parameters.
+
+        Raises:
+            TypeError: If a tool parameter does not have a type annotation
+                or its annotation cannot be converted to a supported schema.
+        """
         sig = inspect.signature(method)
         properties = {}
         required = []
@@ -148,6 +197,12 @@ class ToolManager:
         obj: object,
         method_name: str
     ) -> None:
+        """
+        Register a single method as a callable tool.
+
+        The method is added to the callable tool registry and a corresponding
+        tool schema is appended to the provided namespace.
+        """
         callable_method = getattr(obj, method_name)
         tool_name = f'{namespace.name}.{method_name}'
 
@@ -173,6 +228,25 @@ class ToolManager:
         *args, 
         **kwargs
     ) -> object:
+        """Instantiate and register a class as a tool namespace.
+
+        All public methods of the instantiated object are registered as
+        callable tools unless their names are included in ``exclude``.
+
+        Args:
+            class_: The class to instantiate and register.
+            exclude: Method names that should not be registered.
+            *args: Positional arguments passed to the class constructor.
+            **kwargs: Keyword arguments passed to the class constructor.
+
+        Returns:
+            The instantiated object whose public methods were registered.
+
+        Raises:
+            TypeError: If ``class_`` is not a class.
+            OrionEngineException: If class instantiation or tool
+                registration fails.
+        """
         if not inspect.isclass(class_):
             raise TypeError(f'{LOGGING_NAME} {class_} is not a class.')
 
@@ -206,7 +280,32 @@ class ToolManager:
     # -------------------
     # Public methods
     # -------------------
-    def tool(self, *, exclude: Optional[set[str]] = None):
+    def tool(
+        self, 
+        *, 
+        exclude: Optional[set[str]] = None
+    ) -> Callable:
+        """Create a decorator for registering a class as a tool namespace.
+
+        The decorated class is instantiated when the resulting wrapper is
+        called, and all of its public methods are automatically registered
+        as tools. Methods listed in ``exclude`` are skipped.
+
+        Args:
+            exclude: Optional set of method names that should not be
+                registered as tools.
+
+        Returns:
+            A class decorator that registers the decorated class when
+            instantiated.
+
+        Example:
+            ```python
+            @tool(exclude={"internal_method"})
+            class MyTools:
+                ...
+            ```
+        """
         exclude = exclude or set()    # `or` returns the first truthy set object
 
         def decorator(class_: type[Any]):
@@ -216,6 +315,21 @@ class ToolManager:
         return decorator
 
     def call(self, name: str, *args, **kwargs) -> Any:
+        """Execute a registered tool by its fully qualified name.
+
+        Args:
+            name: The registered tool name, typically in the
+                ``namespace.method`` format.
+            *args: Positional arguments passed to the tool.
+            **kwargs: Keyword arguments passed to the tool.
+
+        Returns:
+            The value returned by the registered tool.
+
+        Raises:
+            OrionEngineException: If no tool with the specified name
+                is registered.
+        """
         try:
             func = self.callable_tools[name]
 
