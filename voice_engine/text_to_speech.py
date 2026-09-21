@@ -113,14 +113,19 @@ class TTSManager:
 
     def __init__(
         self,
-        synthesizer: BaseSynthesizer,
-        audio_player: BaseAudioPlayer,
+        voice: str,
         *,
+        use_cuda: bool = False,
         request_buffer_size: int = 5,
         audio_buffer_size: int = 25
     ) -> None:
-        self.synthesizer = synthesizer
-        self.audio_player = audio_player
+        self.synthesizer = PiperSynthesizer(
+            voice= voice,
+            use_cuda= use_cuda
+        )
+        self.audio_player = SoundDevicePlayer(
+            self.synthesizer.sample_rate
+        )
 
         self.request_queue = Queue(maxsize= request_buffer_size)
         self.audio_queue = Queue(maxsize= audio_buffer_size)

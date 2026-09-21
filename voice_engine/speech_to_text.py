@@ -156,17 +156,17 @@ class STTManager:
 
     def __init__(
         self, 
-        recorder: BaseRecorder,
-        vad: BaseVAD,
-        recognizer: BaseRecognizer,
         *,
+        model: str = 'base.en',
         audio_buffer_size: int = 25,
         utterance_buffer_size: int = 25, 
         transcript_buffer_size: int = 25
     ) -> None:
-        self.recorder = recorder
-        self.vad = vad
-        self.recognizer = recognizer
+        self.recorder = SoundDeviceRecorder()
+        self.vad = SileroVAD()
+        self.recognizer = FasterWhisperRecognizer(
+            model= model
+        )
 
         self.audio_queue = Queue(maxsize= audio_buffer_size)
         self.utterance_queue = Queue(maxsize= utterance_buffer_size)
