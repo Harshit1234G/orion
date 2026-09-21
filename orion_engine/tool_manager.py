@@ -1,8 +1,8 @@
 import inspect
-# from functools import wraps
 from typing import Any, Callable, Optional, ClassVar, Union, get_args, get_origin
 import types
 from dataclasses import asdict
+import re
 
 from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
 from utils import logger, OrionEngineException
@@ -19,28 +19,24 @@ class ToolManager:
     # Class methods
     # -------------------
     @classmethod
-    def _append_to_namespaces(cls, namespace: dict) -> None:
+    def append_to_namespaces(cls, namespace: dict) -> None:
         cls.namespaces.append(namespace)
 
     @classmethod
-    def _add_to_callable_tools(cls, tool: str, func: Callable) -> None:
+    def add_to_callable_tools(cls, tool: str, func: Callable) -> None:
         cls.callable_tools[tool] = func
 
     # -------------------------
     # schema building methods
     # -------------------------
     def __initialize_namespace(self, obj: object) -> OpenAIToolNamespaceSchema:
-        try:
-            name = "".join(
-                [
-                    f'_{c.lower()}' 
-                    if c.isupper() else c 
-                    for c in obj.__class__.__name__
-                ]
-            ).lstrip('_')
-
-        except:
-            name = f'namespace_{len(self.namespaces)}'
+        name = obj.__class__.__name__
+        # converting to snake case
+        name = re.sub(
+            r'(?<!^)(?=[A-Z])',
+            '_',
+            name
+        ).lower()
 
         return OpenAIToolNamespaceSchema(
             name= name,
@@ -146,14 +142,19 @@ class ToolManager:
     # ----------------------
     # Registration methods
     # ----------------------
-    def __register_method(
+    def _register_method(
         self,
         namespace: OpenAIToolNamespaceSchema,
         obj: object,
         method_name: str
     ) -> None:
         callable_method = getattr(obj, method_name)
-        self._add_to_callable_tools(f'{namespace.name}.{method_name}', callable_method)
+        tool_name = f'{namespace.name}.{method_name}'
+
+        if tool_name in self.callable_tools:
+            raise ValueError(f'{LOGGING_NAME} Tool already regisered: {tool_name}')
+
+        self.add_to_callable_tools(tool_name, callable_method)
 
         namespace.tools.append(
             Tool(
@@ -163,7 +164,9 @@ class ToolManager:
             )
         )
 
-    def __register_class(
+        logger.debug(f'{LOGGING_NAME} Registered tool: {tool_name}.')
+
+    def _register_class(
         self,
         class_: type[Any], 
         exclude: Optional[set[str]],
@@ -172,24 +175,33 @@ class ToolManager:
     ) -> object:
         if not inspect.isclass(class_):
             raise TypeError(f'{LOGGING_NAME} {class_} is not a class.')
-        
-        obj = class_(*args, **kwargs)
-        namespace = self.__initialize_namespace(obj)
 
-        for method_name in self.__get_public_methods(obj):
-            if method_name in exclude:
-                continue
+        try:
+            obj = class_(*args, **kwargs)
+            namespace = self.__initialize_namespace(obj)
 
-            self.__register_method(
-                namespace,
-                obj,
-                method_name
+            for method_name in self.__get_public_methods(obj):
+                if method_name in exclude:
+                    continue
+
+                self._register_method(
+                    namespace,
+                    obj,
+                    method_name
+                )
+
+            self.append_to_namespaces(asdict(namespace))
+            logger.info(
+                f'{LOGGING_NAME} Namespace registered successfully. '
+                f'NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}'
             )
 
-        self._append_to_namespaces(asdict(namespace))
-        logger.info(f'{LOGGING_NAME} Namespace registered successfully. NAMESPACE: "{namespace.name}", TOTAL_CALLABLE_TOOLS: {len(namespace.tools)}')
+            return obj
 
-        return obj
+        except Exception as e:
+            raise OrionEngineException(
+                f'{LOGGING_NAME} Failed to register tool {namespace.name}.{method_name}.'
+            ) from e
 
     # -------------------
     # Public methods
@@ -198,18 +210,19 @@ class ToolManager:
         exclude = exclude or set()    # `or` returns the first truthy set object
 
         def decorator(class_: type[Any]):
-            # @wraps(class_)
             def wrapper(*args, **kwargs):
-                try:
-                    return self.__register_class(class_, exclude, *args, **kwargs)
-
-                except Exception as e:
-                    raise OrionEngineException(
-                        f'{LOGGING_NAME} An error occured while registering namespace.'
-                    ) from e
-            
+                return self._register_class(class_, exclude, *args, **kwargs)
             return wrapper
         return decorator
 
     def call(self, name: str, *args, **kwargs) -> Any:
-        return self.callable_tools[name](*args, **kwargs)
+        try:
+            func = self.callable_tools[name]
+
+        except KeyError as e:
+            raise OrionEngineException(
+                f'{LOGGING_NAME} Unknown tool: `{name}`.'
+            ) from e
+
+        return func(*args, **kwargs)
+        #TODO: eventually could add parameter validation, permissions, streaming, async, etc.
