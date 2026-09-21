@@ -1,9 +1,9 @@
 from . import llm_api as llm
 from . import memory_manager as memory
 from . import tool_manager as tools
-from . import skill_manager as skills
 import voice_engine as voice
 import prompts
+import skills    # this import is required to load all skills automatically
 import utils
 
 
@@ -21,7 +21,6 @@ class OrionEngine:
         self.llm_client = llm.OpenAIClient()
         self.tool_manager = tools.ToolManager()
         self.memory_manager = memory.MemoryManager()
-        # self.skill_manager = skills.SkillManager()
         self.stt = voice.STTManager(
             model= recognition_model
         )
