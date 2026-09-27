@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import NoReturn, Optional, Iterator
 import dateutil
-from sqlite3 import Row
 
 from utils import DatabaseConnector, logger
 import db_queries as queries
-from .tool_manager import ToolManager
+from .tool_manager import ToolManager, ToolStatus
 
 
 LOGGING_NAME = '[MemoryManager]'
@@ -32,19 +31,19 @@ class Memory(ABC):
         ...
 
     @abstractmethod
-    def save(*args, **kwargs) -> None:
+    def save(*args, **kwargs) -> Optional[dict]:
         ...
 
     @abstractmethod
-    def retrieve(*args, **kwargs) -> list[Row]:
+    def retrieve(*args, **kwargs) -> list[dict]:
         ...
 
     @abstractmethod
-    def delete(*args, **kwargs) -> None:
+    def delete(*args, **kwargs) -> Optional[dict]:
         ...
 
     @abstractmethod
-    def update(*args, **kwargs) -> Optional[NoReturn]:
+    def update(*args, **kwargs) -> dict | NoReturn:
         ...
 
 
@@ -109,11 +108,11 @@ class ConversationMemory(Memory):
         self.prev_convo_length = len(conversation)
         logger.info(f'{LOGGING_NAME} Saved conversation.')
 
-    def retrieve_previous_conversation(self) -> list[Row]:
+    def retrieve_previous_conversation(self) -> list[dict]:
         """Retrieve the most recent conversation entries from the current session."""
         return self.retrieve(last_n= self.prev_convo_length)
 
-    def retrieve(self, last_n: int) -> list[Row]:
+    def retrieve(self, last_n: int) -> list[dict]:
         """Retrieve the specified number of recent conversation entries from the current session."""
         rows = self.connector.fetch_all(
             queries.RETRIEVE_CONVERSATION,
@@ -121,9 +120,8 @@ class ConversationMemory(Memory):
         )
 
         logger.info(f'{LOGGING_NAME} Retrieved {last_n} rows of conversation.')
-        return rows[::-1]
+        return [dict(row) for row in rows[::-1]]
             
-
     def delete(self, id_: int) -> None:
         with self.connector.transaction():
             self.connector.execute(
@@ -150,12 +148,16 @@ class SessionMemory:
         logger.info(f'{LOGGING_NAME} Asked for session memory.')
         return self.memory
 
-    def update(self, summary: str) -> None:
+    def update(self, summary: str) -> dict:
         """
         Replaces the current session memory with the provided summary. Preserve all existing information while updating; only condense or shorten the content when the memory becomes large.
         """
         self.memory = summary
         logger.info(f'{LOGGING_NAME} Session Memory updated successfully.')
+        return {
+            'status': ToolStatus.COMPLETED,
+            'message': 'Updated successfully.'
+        }
 
 
 @tm.tool(exclude= {'create_table', 'delete_table', 'reset_table'})
@@ -198,7 +200,7 @@ class LongTermMemory(Memory):
         category: str,
         expires_at: str,
         importance: int = 5
-    ) -> None:
+    ) -> dict:
         """Save a new long-term memory."""
         expires_at = dateutil.parser.parse(expires_at) if expires_at != 'never' else expires_at
         
@@ -209,11 +211,31 @@ class LongTermMemory(Memory):
             )
 
         logger.info(f'{LOGGING_NAME} Saved long term memory.')
+        return {
+            'status': ToolStatus.COMPLETED,
+            'message': 'Saved long-term memory.'
+        }
 
     def get_all_keys(self) -> list[str]:
         """Retrieve the keys of all stored long-term memories."""
         keys = self.connector.fetch_all(queries.GET_ALL_KEYS)
         return [key[0] for key in keys]
+
+    def __retrieve_from_id(self, id) -> list[dict]:
+        row = self.connector.fetch_one(
+            queries.RETRIEVE_FROM_ID,
+            parameters= (id,)
+        )
+        logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
+        return [dict(row)]
+
+    def __retrieve_from_key(self, key) -> list[dict]:
+        row = self.connector.fetch_one(
+            queries.RETRIEVE_FROM_KEY,
+            parameters= (key,)
+        )
+        logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
+        return [dict(row)]
 
     def retrieve(
         self,
@@ -224,7 +246,7 @@ class LongTermMemory(Memory):
         with_higher_importance_than: Optional[int] = None,
         with_lower_importance_than: Optional[int] = None,
         is_active: Optional[bool] = True 
-    ) -> list[Row]:
+    ) -> list[dict]:
         """Retrieve long-term memories using an ID, key, or optional filters.
 
         Use ``from_id`` or ``from_key`` to retrieve a specific memory. When
@@ -235,18 +257,10 @@ class LongTermMemory(Memory):
 
         # if from_id or from_key is provided than all other args will be ignored
         if from_id is not None:
-            logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from id.')
-            return self.connector.fetch_one(
-                queries.RETRIEVE_FROM_ID,
-                parameters= (from_id,)
-            )
+            return self.__retrieve_from_id(from_id)
 
         if from_key is not None:
-            logger.info(f'{LOGGING_NAME} Ignored all arguments and retrieved from key.')
-            return self.connector.fetch_one(
-                queries.RETRIEVE_FROM_KEY,
-                parameters= (from_key,)
-            )
+            return self.__retrieve_from_key(from_key)
 
         # building dynamic conditions
         conditions = []
@@ -274,9 +288,13 @@ class LongTermMemory(Memory):
             query += ' WHERE ' + ' AND '.join(conditions)
 
         logger.info(f'{LOGGING_NAME} Retrieving long term memory based on {len(conditions)} conditions.')
-        return self.connector.fetch_all(query, parameters)
+        return [
+            dict(row)
+            for row in 
+            self.connector.fetch_all(query, parameters)
+        ]
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str) -> dict:
         """Permanently delete a long-term memory by its key."""
         with self.connector.transaction():
             self.connector.execute(
@@ -285,6 +303,10 @@ class LongTermMemory(Memory):
             )
 
         logger.info(f'{LOGGING_NAME} Permanently deleted long term memory with {key = }')
+        return {
+            'status': ToolStatus.COMPLETED,
+            'message': 'Permanently deleted memory.'
+        }
 
     def __update_last_accessed_at(self, key: str) -> None:
         with self.connector.transaction():
@@ -302,7 +324,7 @@ class LongTermMemory(Memory):
         importance: Optional[int] = None,
         expires_at: Optional[str] = None,
         is_active: Optional[bool] = None
-    ) -> None:
+    ) -> dict:
         """Update an existing long-term memory.
 
         The memory is identified by its key. The content is always updated,
@@ -339,6 +361,10 @@ class LongTermMemory(Memory):
             self.connector.execute(query, parameters)
 
         logger.info(f'{LOGGING_NAME} Updated long term memory with {key = }')
+        return {
+            'status': ToolStatus.COMPLETED,
+            'message': 'Updated successfully.'
+        }
 
 
 class EnvironmentMemory(Memory):

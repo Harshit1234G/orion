@@ -5,7 +5,7 @@ from .llm_api import (
     Tool,
     OpenAIToolNamespaceSchema
 )
-from .tool_manager import ToolManager
+from .tool_manager import ToolManager, ToolStatus
 from .memory_manager import (
     Memory,
     ConversationMemory,

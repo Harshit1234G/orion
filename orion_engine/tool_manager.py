@@ -3,12 +3,21 @@ from typing import Any, Callable, Optional, ClassVar, Union, get_args, get_origi
 import types
 from dataclasses import asdict
 import re
+from enum import Enum
 
 from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
 from utils import logger, OrionEngineException
 
 
 LOGGING_NAME = '[ToolManager]'
+
+
+class ToolStatus(str, Enum):
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+    CANCELLED = 'cancelled'
+    PARTIAL = 'partial'        # only a part of requested action is complete
+    PENDING = 'pending'
 
 
 class ToolManager:
