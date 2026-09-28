@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS conversation_events(
 )
 '''
 
-DROP_TABLE = 'DROP TABLE IF EXISTS ?'
+DROP_TABLE = 'DROP TABLE IF EXISTS '
 
-RESET_TABLE = 'DELETE FROM ?'
+RESET_TABLE = 'DELETE FROM '
 
 SAVE_CONVERSATION = '''
 INSERT INTO conversation_events (role, content)
@@ -80,4 +80,41 @@ UPDATE_LAST_ACCESSED_AT = '''
 UPDATE long_term_memory
 SET last_accessed_at = CURRENT_TIMESTAMP
 WHERE key = ?
+'''
+
+# ------------------------------
+# Environemnt memory
+# ------------------------------
+ENVIRONMENT_MEMORY_CREATE_TABLE = '''
+CREATE TABLE IF NOT EXISTS environment_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    metadata TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(category, key)
+)
+'''
+
+SAVE_ENVIRONMENT_MEMORY = '''
+INSERT INTO environment_memory (category, key, value, metadata)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(category, key)
+DO UPDATE SET 
+    value = excluded.value,
+    metadata = excluded.metadata,
+    updated_at = CURRENT_TIMESTAMP
+'''
+
+RETRIEVE_ENVIRONMENT = 'SELECT * FROM environment_memory'
+
+RETRIEVE_ENVIRONMENT_MEMORY_CATEGORY = '''
+SELECT * FROM environment_memory
+WHERE category = ?
+'''
+
+DELETE_ENVIRONMENT_MEMORY = '''
+DELETE FROM environment_memory
+WHERE category = ? AND key = ?
 '''

@@ -80,8 +80,7 @@ class ConversationMemory(Memory):
     def delete_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
-                queries.DROP_TABLE,
-                parameters= (self.table_name,)
+                queries.DROP_TABLE + self.table_name
             )
 
         logger.info(f'{LOGGING_NAME} Deleted `{self.table_name}` table.')
@@ -89,8 +88,7 @@ class ConversationMemory(Memory):
     def reset_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
-                queries.RESET_TABLE,
-                parameters= (self.table_name,)
+                queries.RESET_TABLE + self.table_name
             )
 
         logger.info(f'{LOGGING_NAME} Reseted `{self.table_name}` table.')
@@ -178,8 +176,7 @@ class LongTermMemory(Memory):
     def delete_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
-                queries.DROP_TABLE,
-                parameters= (self.table_name,)
+                queries.DROP_TABLE + self.table_name
             )
 
         logger.info(f'{LOGGING_NAME} Deleted `{self.table_name}` table.')
@@ -187,8 +184,7 @@ class LongTermMemory(Memory):
     def reset_table(self) -> None:
         with self.connector.transaction():
             self.connector.execute(
-                queries.RESET_TABLE,
-                parameters= (self.table_name,)
+                queries.RESET_TABLE + self.table_name
             )
 
         logger.info(f'{LOGGING_NAME} Reseted `{self.table_name}` table.')
@@ -367,9 +363,110 @@ class LongTermMemory(Memory):
         }
 
 
+@tm.tool(
+    exclude= {
+        'create_table', 
+        'delete_table', 
+        'reset_table',
+        'save',
+        'update',
+        'delete'
+    }
+)
 class EnvironmentMemory(Memory):
-    def __init__(self):
-        raise NotImplementedError()
+    table_name = 'environment_memory'
+    
+    def __init__(self, connector: DatabaseConnector) -> None:
+        super().__init__()
+        self.connector = connector
+
+    def create_table(self) -> None:
+        with self.connector.transaction():
+            self.connector.execute(queries.ENVIRONMENT_MEMORY_CREATE_TABLE)
+
+        logger.info(f'{LOGGING_NAME} Created `{self.table_name}` table.')
+
+    def delete_table(self) -> None:
+        with self.connector.transaction():
+            self.connector.execute(
+                queries.DROP_TABLE + self.table_name
+            )
+
+        logger.info(f'{LOGGING_NAME} Deleted `{self.table_name}` table.')
+
+    def reset_table(self) -> None:
+        with self.connector.transaction():
+            self.connector.execute(
+                queries.RESET_TABLE + self.table_name
+            )
+
+        logger.info(f'{LOGGING_NAME} Reseted `{self.table_name}` table.')
+
+    def save(
+        self,
+        category: str,
+        key: str,
+        value: str,
+        metadata: Optional[str] = None
+    ) -> dict:
+        with self.connector.transaction():
+            self.connector.execute(
+                query= queries.SAVE_ENVIRONMENT_MEMORY,
+                parameters= (category, key, value, metadata)
+            )
+
+        logger.info(f'{LOGGING_NAME} Saved environment memory.')
+        return {
+            'status': ToolStatus.COMPLETED,
+            'message': 'Saved enviroment memory.'
+        }
+
+    def retrieve(self) -> list[dict]:
+        with self.connector.transaction():
+            rows = self.connector.fetch_all(queries.RETRIEVE_ENVIRONMENT)
+
+        logger.info(f'{LOGGING_NAME} Retrieved {len(rows)} environment memories.')
+        return [dict(row) for row in rows]
+
+    def retrieve_category(self, category: str) -> list[dict]:
+        with self.connector.transaction():
+            rows = self.connector.fetch_all(
+                query= queries.RETRIEVE_ENVIRONMENT_MEMORY_CATEGORY,
+                parameters= (category,)
+            )
+
+        logger.info(f'{LOGGING_NAME} Retrieved {len(rows)} environment memories, based on {category = }.')
+        return [dict(row) for row in rows]
+
+    def delete(
+        self,
+        category: str,
+        key: str
+    ) -> Optional[dict]:
+        with self.connector.transaction():
+            self.connector.execute(
+                query= queries.DELETE_ENVIRONMENT_MEMORY,
+                parameters= (category, key)
+            )
+
+        logger.info(f'{LOGGING_NAME} Deleted environment memory with {category = } & {key = }')
+        return {
+            'status': ToolStatus.COMPLETED,
+            'message': 'Deleted environment memory.'
+        }
+
+    def update(
+        self, 
+        category: str,
+        key: str,
+        value: str,
+        metadata: Optional[str] = None
+    ) -> dict:
+        self.save(category, key, value, metadata)
+        return {
+            'status': ToolStatus.COMPLETED,
+            'message': 'Updated environment memory.'
+        }
 
 # ------------------
 # Manager
@@ -380,9 +477,9 @@ class MemoryManager:
         self.conversation = ConversationMemory(self.db)
         self.session = SessionMemory()
         self.long_term = LongTermMemory(self.db)
-        # self.environment = EnvironmentMemory(self.db_conn)        # will throw error 
+        self.environment = EnvironmentMemory(self.db)
 
     def shutdown(self) -> None:
         self.conversation.reset_table()
-        # self.environment.reset_table()
+        self.environment.reset_table()
         self.db.close()
