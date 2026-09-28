@@ -374,6 +374,7 @@ class LongTermMemory(Memory):
     }
 )
 class EnvironmentMemory(Memory):
+    """Access current environment state, such as running applications, active windows, open files, and workspaces."""
     table_name = 'environment_memory'
     
     def __init__(self, connector: DatabaseConnector) -> None:
@@ -422,6 +423,7 @@ class EnvironmentMemory(Memory):
         }
 
     def retrieve(self) -> list[dict]:
+        """Retrieve all current environment states."""
         with self.connector.transaction():
             rows = self.connector.fetch_all(queries.RETRIEVE_ENVIRONMENT)
 
@@ -429,6 +431,7 @@ class EnvironmentMemory(Memory):
         return [dict(row) for row in rows]
 
     def retrieve_category(self, category: str) -> list[dict]:
+        """Retrieve current environment state for a specific category."""
         with self.connector.transaction():
             rows = self.connector.fetch_all(
                 query= queries.RETRIEVE_ENVIRONMENT_MEMORY_CATEGORY,
@@ -478,6 +481,21 @@ class MemoryManager:
         self.session = SessionMemory()
         self.long_term = LongTermMemory(self.db)
         self.environment = EnvironmentMemory(self.db)
+
+    def create_tables(self) -> None:
+        self.conversation.create_table()
+        self.long_term.create_table()
+        self.environment.create_table()
+
+    def delete_tables(self) -> None:
+        self.conversation.delete_table()
+        self.long_term.delete_table()
+        self.environment.delete_table()
+
+    def reset_tables(self) -> None:
+        self.conversation.reset_table()
+        self.long_term.reset_table()
+        self.environment.reset_table()
 
     def shutdown(self) -> None:
         self.conversation.reset_table()
