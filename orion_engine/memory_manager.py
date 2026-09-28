@@ -106,7 +106,7 @@ class ConversationMemory(Memory):
             )
 
         self.prev_convo_length = len(conversation)
-        logger.info(f'{LOGGING_NAME} Saved conversation.')
+        logger.info(f'{LOGGING_NAME} Saved conversation with length {self.prev_convo_length}.')
 
     def retrieve_previous_conversation(self) -> list[dict]:
         """Retrieve the most recent conversation entries from the current session."""
@@ -376,15 +376,13 @@ class EnvironmentMemory(Memory):
 # ------------------
 class MemoryManager:
     def __init__(self) -> None:
-        self.db_conn = DatabaseConnector()
-        self.conversation = ConversationMemory(self.db_conn)
+        self.db = DatabaseConnector()
+        self.conversation = ConversationMemory(self.db)
         self.session = SessionMemory()
-        self.long_term = LongTermMemory(self.db_conn)
-        # self.environment_memory = EnvironmentMemory(self.db_conn)        # will throw error 
-
-    def simplify_conversation(self) -> Iterator:
-        ...
+        self.long_term = LongTermMemory(self.db)
+        # self.environment = EnvironmentMemory(self.db_conn)        # will throw error 
 
     def shutdown(self) -> None:
-        self.db_conn.close()
-        
+        self.conversation.reset_table()
+        # self.environment.reset_table()
+        self.db.close()
