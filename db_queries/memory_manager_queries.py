@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS environment_memory (
     category TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
-    metadata TEXT,
+    metadata TEXT DEFAULT NULL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(category, key)
 )
@@ -103,7 +103,7 @@ VALUES (?, ?, ?, ?)
 ON CONFLICT(category, key)
 DO UPDATE SET 
     value = excluded.value,
-    metadata = excluded.metadata,
+    metadata = COALESCE(excluded.metadata, environment_memory.metadata),
     updated_at = CURRENT_TIMESTAMP
 '''
 
