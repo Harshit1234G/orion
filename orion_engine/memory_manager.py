@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import NoReturn, Optional, Iterator
+from typing import NoReturn, Optional, Iterator, Literal
 import dateutil
 
 from utils import DatabaseConnector, logger
@@ -405,7 +405,7 @@ class EnvironmentMemory(Memory):
 
     def save(
         self,
-        category: str,
+        category: Literal['application', 'active_window', 'file'],
         key: str,
         value: str,
         metadata: Optional[str] = None
@@ -430,7 +430,10 @@ class EnvironmentMemory(Memory):
         logger.info(f'{LOGGING_NAME} Retrieved {len(rows)} environment memories.')
         return [dict(row) for row in rows]
 
-    def retrieve_category(self, category: str) -> list[dict]:
+    def retrieve_category(
+        self, 
+        category: Literal['application', 'active_window', 'file']
+    ) -> list[dict]:
         """Retrieve current environment state for a specific category."""
         with self.connector.transaction():
             rows = self.connector.fetch_all(
@@ -443,9 +446,9 @@ class EnvironmentMemory(Memory):
 
     def delete(
         self,
-        category: str,
+        category: Literal['application', 'active_window', 'file'],
         key: str
-    ) -> Optional[dict]:
+    ) -> dict:
         with self.connector.transaction():
             self.connector.execute(
                 query= queries.DELETE_ENVIRONMENT_MEMORY,
@@ -460,7 +463,7 @@ class EnvironmentMemory(Memory):
 
     def update(
         self, 
-        category: str,
+        category: Literal['application', 'active_window', 'file'],
         key: str,
         value: str,
         metadata: Optional[str] = None

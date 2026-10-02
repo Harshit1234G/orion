@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Callable, Optional, ClassVar, Union, get_args, get_origin
+from typing import Any, Callable, Optional, ClassVar, Union, Literal, get_args, get_origin
 import types
 from dataclasses import asdict
 import re
@@ -130,25 +130,29 @@ class ToolManager:
             }
 
         if origin is dict:
-            return {
-                'type': 'object'
-            }
+            return {'type': 'object'}
 
         if origin in (Union, types.UnionType):
             schemas = [
                 self.__annotation_to_schema(arg)
                 for arg in args
+                if arg is not type(None)
             ]
 
+            return {'anyOf': schemas} if len(schemas) != 1 else schemas[0]
+
+        if origin is Literal:
+            dtypes = {type(arg) for arg in args}
+
+            if len(dtypes) != 1:
+                raise TypeError(f'{LOGGING_NAME} For Literal type, all the args must be of same type. {dtypes = }')
+
             return {
-                'anyOf': schemas
+                **self.__annotation_to_schema(dtypes.pop()),
+                'enum': list(args)
             }
 
-        # TODO: Add Literal annotation support if needed
-
-        raise TypeError(
-            f'Unsupported annotation: {annotation!r}'
-        )
+        raise TypeError(f'Unsupported annotation: {annotation!r}')
 
     def __create_parameters_for_tools(self, method: Callable) -> Parameters:
         """Build a parameter schema from a callable's signature.
