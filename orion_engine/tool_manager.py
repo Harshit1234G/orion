@@ -5,7 +5,7 @@ from dataclasses import asdict
 import re
 from enum import Enum
 
-from .llm_api import Parameters, Tool, OpenAIToolNamespaceSchema
+from .llm_api import ToolParameters, ToolSchema, OpenAIToolNamespaceSchema
 from utils import logger, OrionEngineException
 
 
@@ -154,7 +154,7 @@ class ToolManager:
 
         raise TypeError(f'Unsupported annotation: {annotation!r}')
 
-    def __create_parameters_for_tools(self, method: Callable) -> Parameters:
+    def __create_parameters_for_tools(self, method: Callable) -> ToolParameters:
         """Build a parameter schema from a callable's signature.
 
         Parameter annotations are converted into JSON schema fragments.
@@ -196,7 +196,7 @@ class ToolManager:
             else:
                 properties[name]['default'] = param.default
 
-        return Parameters(
+        return ToolParameters(
             properties= properties,
             required= required
         )
@@ -225,7 +225,7 @@ class ToolManager:
         self.add_to_callable_tools(tool_name, callable_method)
 
         namespace.tools.append(
-            Tool(
+            ToolSchema(
                 name= method_name,
                 description= inspect.getdoc(callable_method),
                 parameters= self.__create_parameters_for_tools(callable_method)

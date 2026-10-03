@@ -15,24 +15,22 @@ LOGGING_NAME = '[LLM_API]'
 # ----------------------------
 class OpenAIModels(str, Enum):
     FAST = 'gpt-5-nano'
-    GENERAL = 'gpt-5.6-luna'
-    REASONING = 'gpt-5.6-terra'
-    ADVANCED_REASONING = 'gpt-5.6-sol'
+    GENERAL = 'gpt-6-luna'
+    REASONING = 'gpt-6.1-sol'
 
 
 @dataclass(frozen= True)
-class Parameters:
-    properties: dict[dict]      # this will contain all the function parameters and there dtype as "<parameter>": {"type": "<dtype>"}
+class ToolParameters:
+    properties: dict[str, dict[str, Any]]      # this will contain all the function parameters and there dtype as "<parameter>": {"type": "<dtype>"}
     required: list[str]
     type: str = 'object'
-    additionalProperties: bool = False
 
 
 @dataclass(frozen= True)
-class Tool:
+class ToolSchema:
     name: str
     description: str
-    parameters: Parameters
+    parameters: ToolParameters
     type: str = 'function'
 
 
@@ -40,7 +38,7 @@ class Tool:
 class OpenAIToolNamespaceSchema:
     name: str
     description: str
-    tools: list[Tool]
+    tools: list[ToolSchema]
     type: str = 'namespace'
 
 

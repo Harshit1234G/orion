@@ -1,8 +1,8 @@
 from .llm_api import (
     OpenAIModels, 
     OpenAIClient,
-    Parameters,
-    Tool,
+    ToolParameters,
+    ToolSchema,
     OpenAIToolNamespaceSchema
 )
 from .tool_manager import ToolManager, ToolStatus
@@ -21,8 +21,8 @@ __all__ = [
     'OpenAIModels', 
     'OpenAIClient',
     'OrionEngine',
-    'Parameters',
-    'Tool',
+    'ToolParameters',
+    'ToolSchema',
     'OpenAIToolNamespaceSchema',
     'ToolManager',
     'Memory',
