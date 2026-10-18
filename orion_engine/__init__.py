@@ -30,5 +30,6 @@ __all__ = [
     'SessionMemory',
     'LongTermMemory',
     'EnvironmentMemory',
-    'MemoryManager'
+    'MemoryManager',
+    'ToolStatus'
 ]

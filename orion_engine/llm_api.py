@@ -1,8 +1,11 @@
 from enum import Enum
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
 from openai import OpenAI, Stream
-from openai.types.responses import Response, ResponseStreamEvent
+from openai.types.responses import Response, ResponseStreamEvent, ResponseInputParam
+from openai.types.decision import Decision
+from openai.types.decision_input_message_param import DecisionInputMessageParam
+from openai.types.decision_create_params import Question
 
 from utils import logger, load_api_key_from_env, load_api_key_keyring
 
@@ -70,14 +73,14 @@ class OpenAIClient:
         self,
         *,
         model: OpenAIModels,
-        input: Any,
+        input: str | ResponseInputParam,
         **kwargs
     ) -> Response | Stream[ResponseStreamEvent]:
         """Generate a response using the OpenAI Responses API.
 
         Args:
             model (OpenAIModels): The OpenAI model to use for generation.
-            input (Any): The input provided to the model. This can be a string or a supported structured input accepted by the Responses API.
+            input (str or ResponseInputParam): The input provided to the model. This can be a string or a supported structured input accepted by the Responses API.
             **kwargs: Additional keyword arguments forwarded directly to `client.responses.create()`.
             
         Returns:
@@ -91,3 +94,19 @@ class OpenAIClient:
 
         logger.info(f'{LOGGING_NAME} Response Received Successfully.')
         return response
+
+    def decide(
+        self,
+        input: str | Iterable[DecisionInputMessageParam],
+        questions: Iterable[Question],
+        **kwargs
+    ) -> Decision:
+        decision = self.client.decisions.create(
+            model= 'gpt-6-luna',
+            input= input,
+            questions= questions,
+            **kwargs
+        )
+
+        logger.info(f'{LOGGING_NAME} Decision received successfully.')
+        return decision
