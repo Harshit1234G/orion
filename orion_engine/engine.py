@@ -110,6 +110,6 @@ class OrionEngine:
                 component.shutdown()
 
             except Exception as e:
-                utils.logger.exception(f'{LOGGING_NAME} Failed to shut down: {e}')
+                utils.logger.exception(f'{LOGGING_NAME} Failed to shut down {name}: {e}')
 
         self._set_state(OrionState.STOPPED)

@@ -101,6 +101,16 @@ class OpenAIClient:
         questions: Iterable[Question],
         **kwargs
     ) -> Decision:
+        """Generate a decision using the OpenAI Decisions API.
+
+        Args:
+            input (str or Iterable[DecisionInputMessageParam]): The input provided to the model. This can be a string or an iterable of supported structured input messages.
+            questions (Iterable[Question]): The questions the model must answer to make a decision.
+            **kwargs: Additional keyword arguments forwarded directly to `client.decisions.create()`.
+
+        Returns:
+            Decision: The decision object returned by the OpenAI Decisions API.
+        """
         decision = self.client.decisions.create(
             model= 'gpt-6-luna',
             input= input,
