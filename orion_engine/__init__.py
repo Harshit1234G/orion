@@ -14,7 +14,7 @@ from .memory_manager import (
     EnvironmentMemory,
     MemoryManager
 )
-from .engine import OrionEngine
+from .engine import OrionEngine, OrionState
 
 
 __all__ = [
@@ -31,5 +31,6 @@ __all__ = [
     'LongTermMemory',
     'EnvironmentMemory',
     'MemoryManager',
-    'ToolStatus'
+    'ToolStatus',
+    'OrionState'
 ]

@@ -1,4 +1,4 @@
-from queue import Queue
+from queue import Queue, Empty
 from collections import deque
 from threading import Thread, Event
 from abc import ABC, abstractmethod
@@ -234,9 +234,16 @@ class STTManager:
         logger.info(f'{LOGGING_NAME} Stopped Listening.')
         self.listening_event.clear()
 
-    def get_transcript(self) -> str:
+    def get_transcript(
+            self, 
+            timeout: float | None = None
+        ) -> str | None:
         """Retrieve the next available speech transcript."""
-        return self.transcript_queue.get()
+        try:
+            return self.transcript_queue.get(timeout= timeout)
+
+        except Empty:
+            return None
 
     @property
     def is_listening(self) -> bool:
@@ -344,7 +351,7 @@ class STTManager:
                     for segment in segments
                 )
                 logger.debug(f'{LOGGING_NAME} Transcript: {transcript}')
-                self.transcript_queue.put(transcript)
+                self.transcript_queue.put(transcript.strip())
 
             except Exception as e:
                 raise OrionEngineException(f'{LOGGING_NAME} Recognize worker crashed: {e}')
