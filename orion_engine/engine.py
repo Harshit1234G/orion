@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from dataclasses import dataclass
 from threading import Event, Lock
 import time
 
@@ -14,6 +15,9 @@ import utils
 LOGGING_NAME = '[OrionEngine]'
 
 
+# ----------------------
+# Helper classes
+# ----------------------
 class OrionState(Enum):
     IDLE = auto()
     ACTIVE = auto()
@@ -23,6 +27,16 @@ class OrionState(Enum):
     STOPPED = auto()
 
 
+@dataclass(frozen= True)
+class TranscriptDecision:
+    intent: str
+    confidence: float
+    instruction: str
+
+
+# -----------------------
+# Main engine class
+# -----------------------
 class OrionEngine:
     def __init__(
         self,
@@ -87,8 +101,22 @@ class OrionEngine:
             self.shutdown()
 
 
-    def _handle_transcript(self) -> None:
-        raise NotImplementedError
+    def _handle_transcript(self, transcript: str) -> None:
+        decision = self.llm_client.decide(
+            input= transcript,
+            questions= prompts.INTENT_DETECTION
+        )
+
+        decision = TranscriptDecision(
+            intent= decision.answers[0].choice,
+            confidence= decision.answers[0].confidence,
+            instruction= transcript
+        )
+
+        self._route_decision(decision)
+
+    def _route_decision(self, decision: TranscriptDecision) -> None:
+        ...
 
     def shutdown(self) -> None:
         with self._shutdown_lock:
