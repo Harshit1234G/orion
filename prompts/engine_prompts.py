@@ -17,10 +17,6 @@ INTENT_DETECTION = [
                 'description': 'User explicitly cancels or abandons the current task. Stronger than interrupting speech. Examples: "Cancel that", "Never mind", "Forget that".'
             },
             {
-                'value': 'shutdown',
-                'description': 'User explicitly asks Orion itself to shut down or exit, not the operating system.'
-            },
-            {
                 'value': 'instruction',
                 'description': 'Any meaningful question, request, command, follow-up, or conversational utterance that does not match another intent. Use even if the request is unclear.'
             },
